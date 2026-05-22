@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DarkNotes — Documentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f0e8;
+    --surface: #faf7f2;
+    --ink: #1a1612;
+    --ink-muted: #7a7268;
+    --accent: #c4522a;
+    --accent-light: #f3e0d8;
+    --border: #e0d8cc;
+    --code-bg: #f0ebe3;
+    --shadow: rgba(26,22,18,0.10);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ── LAYOUT ── */
+  .page { display: flex; min-height: 100vh; }
+
+  aside {
+    width: 260px; flex-shrink: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
+    background: var(--surface);
+    border-right: 1.5px solid var(--border);
+    overflow-y: auto; padding: 32px 0 48px;
+    z-index: 100;
+  }
+
+  main {
+    margin-left: 260px;
+    max-width: 860px; padding: 60px 56px 100px;
+    flex: 1;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 600;
+    color: var(--ink); padding: 0 24px 28px;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 16px;
+    display: block;
+    letter-spacing: -0.3px;
+  }
+  .sidebar-logo span { color: var(--accent); }
+
+  .nav-section { margin-bottom: 6px; }
+  .nav-section-title {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-muted);
+    padding: 10px 24px 4px; display: block;
+  }
+  .nav-link {
+    display: block; padding: 6px 24px;
+    color: var(--ink-muted); text-decoration: none;
+    font-size: 13.5px; font-weight: 400;
+    transition: color 0.12s, background 0.12s;
+    border-left: 2.5px solid transparent;
+    margin-left: -1px;
+  }
+  .nav-link:hover { color: var(--accent); background: var(--accent-light); }
+  .nav-link.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+
+  /* ── CONTENT ── */
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px; font-weight: 700; line-height: 1.15;
+    color: var(--ink); margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+  h1 .accent { color: var(--accent); }
+
+  .subtitle {
+    font-size: 17px; color: var(--ink-muted); margin-bottom: 52px;
+    max-width: 580px; line-height: 1.6;
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px; font-weight: 600;
+    color: var(--ink); margin: 60px 0 16px;
+    padding-top: 60px;
+    border-top: 1.5px solid var(--border);
+    scroll-margin-top: 40px;
+  }
+  h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+
+  h3 {
+    font-size: 16px; font-weight: 600;
+    color: var(--ink); margin: 32px 0 10px;
+    scroll-margin-top: 40px;
+  }
+
+  p { margin-bottom: 14px; color: var(--ink); max-width: 680px; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── FEATURE CARDS ── */
+  .feature-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin: 24px 0 36px;
+  }
+  .feature-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .feature-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px var(--shadow); }
+  .feature-card h4 {
+    font-size: 14px; font-weight: 600; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .feature-card h4 .icon { font-size: 18px; }
+  .feature-card p { font-size: 13px; color: var(--ink-muted); margin: 0; }
+
+  /* ── KEYBOARD SHORTCUTS ── */
+  .shortcut-table { width: 100%; border-collapse: collapse; margin: 16px 0 32px; }
+  .shortcut-table th {
+    text-align: left; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-muted); padding: 8px 14px;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .shortcut-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .shortcut-table tr:last-child td { border-bottom: none; }
+  .shortcut-table tr:hover td { background: var(--accent-light); }
+
+  kbd {
+    display: inline-block; font-family: 'DM Mono', monospace;
+    font-size: 11px; padding: 2px 7px; border-radius: 5px;
+    background: var(--code-bg); border: 1px solid var(--border);
+    color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+
+  /* ── TOOL TABLE ── */
+  .tool-table { width: 100%; border-collapse: collapse; margin: 16px 0 32px; font-size: 13.5px; }
+  .tool-table th {
+    text-align: left; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-muted); padding: 8px 14px;
+    border-bottom: 1.5px solid var(--border); background: var(--surface);
+  }
+  .tool-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .tool-table tr:last-child td { border-bottom: none; }
+  .tool-table tr:hover td { background: var(--accent-light); }
+  .tool-name { font-family: 'DM Mono', monospace; font-size: 12.5px; color: var(--accent); font-weight: 500; }
+  .tool-badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 7px; border-radius: 20px; margin-left: 4px;
+    background: var(--accent-light); color: var(--accent);
+    letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle;
+  }
+
+  /* ── CODE BLOCKS ── */
+  pre {
+    background: var(--code-bg); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; overflow-x: auto;
+    font-family: 'DM Mono', monospace; font-size: 12.5px;
+    line-height: 1.7; margin: 14px 0 24px; color: var(--ink);
+  }
+  code { font-family: 'DM Mono', monospace; font-size: 12.5px;
+    background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--accent-light);
+    border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 20px 0 28px;
+    font-size: 13.5px;
+  }
+  .callout strong { color: var(--accent); }
+  .callout.tip { border-color: #27ae60; background: #eafaf1; }
+  .callout.tip strong { color: #27ae60; }
+
+  /* ── API ENDPOINT TABLE ── */
+  .api-table { width: 100%; border-collapse: collapse; margin: 16px 0 28px; font-size: 13px; }
+  .api-table th {
+    text-align: left; padding: 8px 12px; font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted);
+    border-bottom: 1.5px solid var(--border); background: var(--surface);
+  }
+  .api-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .api-table tr:last-child td { border-bottom: none; }
+  .method {
+    font-family: 'DM Mono', monospace; font-size: 10.5px; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px; display: inline-block;
+  }
+  .method.get    { background: #e3f2fd; color: #1565c0; }
+  .method.post   { background: #e8f5e9; color: #2e7d32; }
+  .method.patch  { background: #fff8e1; color: #e65100; }
+  .method.put    { background: #f3e5f5; color: #6a1b9a; }
+  .method.delete { background: #fce4ec; color: #c62828; }
+  .endpoint { font-family: 'DM Mono', monospace; font-size: 12px; }
+
+  /* ── STEP LIST ── */
+  .steps { counter-reset: step; margin: 16px 0 28px; }
+  .step {
+    display: flex; gap: 16px; margin-bottom: 20px;
+    align-items: flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: white;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-body h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .step-body p  { font-size: 13.5px; color: var(--ink-muted); margin: 0; }
+
+  /* ── DIVIDER ── */
+  hr { border: none; border-top: 1.5px solid var(--border); margin: 48px 0; }
+
+  @media (max-width: 900px) {
+    aside { display: none; }
+    main { margin-left: 0; padding: 32px 24px 60px; }
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- SIDEBAR -->
+<aside>
+  <span class="sidebar-logo">DarkNotes<span>.</span></span>
+
+  <nav>
+    <div class="nav-section">
+      <span class="nav-section-title">Getting Started</span>
+      <a class="nav-link" href="#overview">Overview</a>
+      <a class="nav-link" href="#interface">Interface</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-title">Notes</span>
+      <a class="nav-link" href="#creating-notes">Creating Notes</a>
+      <a class="nav-link" href="#editing">Editing Content</a>
+      <a class="nav-link" href="#checklists">Checklists</a>
+      <a class="nav-link" href="#styling">Styling Notes</a>
+      <a class="nav-link" href="#labels">Labels</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-title">Canvas</span>
+      <a class="nav-link" href="#arranging">Arranging Notes</a>
+      <a class="nav-link" href="#connections">Connections</a>
+      <a class="nav-link" href="#groups">Groups</a>
+      <a class="nav-link" href="#navigation">Navigation & Zoom</a>
+      <a class="nav-link" href="#minimap">Minimap</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-title">Workspaces</span>
+      <a class="nav-link" href="#workspaces">Workspaces</a>
+      <a class="nav-link" href="#import-export">Import & Export</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-title">MCP Integration</span>
+      <a class="nav-link" href="#mcp-overview">MCP Overview</a>
+      <a class="nav-link" href="#mcp-setup">Setup</a>
+      <a class="nav-link" href="#mcp-tools">MCP Tools</a>
+      <a class="nav-link" href="#rest-api">REST API</a>
+      <a class="nav-link" href="#mcp-examples">Usage Examples</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-title">Reference</span>
+      <a class="nav-link" href="#shortcuts">Keyboard Shortcuts</a>
+      <a class="nav-link" href="#data">Data & Privacy</a>
+    </div>
+  </nav>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main>
+
+  <!-- HERO -->
+  <h1>DarkNotes<span class="accent">.</span> Documentation</h1>
+  <p class="subtitle">A canvas-based note-taking application with workspaces, groups, connections, and full MCP integration for AI-assisted note management.</p>
+
+  <!-- OVERVIEW -->
+  <h2 id="overview">Overview</h2>
+  <p>DarkNotes is a single-file, offline-capable notes app that runs entirely in the browser. Notes live on a freeform canvas — you can position, resize, connect, and group them freely. When the DarkNotes MCP server is running, your notes become accessible to Claude and other AI tools.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card"><h4><span class="icon">📝</span> Rich note editing</h4><p>Mixed text and checklist lines, heading fonts, colors, labels, and word wrap.</p></div>
+    <div class="feature-card"><h4><span class="icon">🗂️</span> Workspaces</h4><p>Unlimited named workspaces, each with its own independent canvas and notes.</p></div>
+    <div class="feature-card"><h4><span class="icon">🔗</span> Visual connections</h4><p>Draw bezier curve lines between notes to show relationships and ideas.</p></div>
+    <div class="feature-card"><h4><span class="icon">📦</span> Groups</h4><p>Cluster related notes inside named, resizable, collapsible group containers.</p></div>
+    <div class="feature-card"><h4><span class="icon">🗺️</span> Minimap</h4><p>Always-visible overview of the entire canvas with a draggable viewport window.</p></div>
+    <div class="feature-card"><h4><span class="icon">🤖</span> MCP server</h4><p>Full CRUD access to your notes from Claude and any MCP-compatible AI client.</p></div>
+  </div>
+
+  <!-- INTERFACE -->
+  <h2 id="interface">Interface</h2>
+  <p>The app has three main areas:</p>
+  <ul style="margin:10px 0 20px 20px;color:var(--ink)">
+    <li style="margin-bottom:8px"><strong>Toolbar</strong> — fixed top bar with workspace switcher, note count, MCP status indicator, zoom controls, and action buttons.</li>
+    <li style="margin-bottom:8px"><strong>Canvas</strong> — the infinite scrollable/zoomable board where notes and groups live.</li>
+    <li><strong>Minimap</strong> — collapsible overview panel in the bottom-right corner.</li>
+  </ul>
+  <p>The small coloured dot next to the note count in the toolbar shows the MCP server status: <strong style="color:#27ae60">green</strong> = online, <strong style="color:#aaa">grey</strong> = offline.</p>
+
+  <!-- CREATING NOTES -->
+  <h2 id="creating-notes">Creating Notes</h2>
+  <p>Click the <strong>+ New Note</strong> button in the toolbar. New notes always appear at the centre of the current visible canvas area, accounting for your pan position and zoom level.</p>
+  <p>You can also <strong>duplicate</strong> any note by right-clicking it and choosing <em>Duplicate</em>. The copy appears offset 30px from the original.</p>
+
+  <!-- EDITING -->
+  <h2 id="editing">Editing Content</h2>
+  <p>Each note has a <strong>heading</strong> (top) and a <strong>line editor</strong> (body). The body is a line-based editor where every line is independent.</p>
+
+  <h3>Line navigation</h3>
+  <table class="shortcut-table">
+    <tr><th>Action</th><th>Key</th></tr>
+    <tr><td>New line below</td><td><kbd>Enter</kbd></td></tr>
+    <tr><td>Line break within a line</td><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td></tr>
+    <tr><td>Delete empty line / move up</td><td><kbd>Backspace</kbd> on empty line</td></tr>
+    <tr><td>Toggle current line to checkbox</td><td><kbd>Tab</kbd></td></tr>
+  </table>
+
+  <p>All lines support <strong>automatic word wrap</strong> — content wraps to the note width and the line expands vertically as you type.</p>
+
+  <!-- CHECKLISTS -->
+  <h2 id="checklists">Checklists</h2>
+  <p>Checklists are inline with text — any line can be a plain text line or a checkbox line. You can freely mix them.</p>
+
+  <h3>Creating checklist items</h3>
+  <ul style="margin:10px 0 16px 20px">
+    <li style="margin-bottom:6px">Click the <strong>☑ Toggle Checklist</strong> button in the note's hover toolbar to convert the current line to a checkbox (or back to text).</li>
+    <li style="margin-bottom:6px">Press <kbd>Tab</kbd> on any line to toggle between text and checkbox.</li>
+    <li>Press <kbd>Enter</kbd> on a checkbox line to create the next checkbox below.</li>
+  </ul>
+
+  <div class="callout tip"><strong>Tip:</strong> A note can have any mix of text and checkbox lines in any order — for example, a paragraph, then a checklist, then more text, then another checklist.</div>
+
+  <!-- STYLING -->
+  <h2 id="styling">Styling Notes</h2>
+
+  <h3>Colors</h3>
+  <p>Hover a note to reveal its toolbar. Click the <strong>palette icon</strong> to open the color panel, which has 20 background colors and 10 font colors.</p>
+
+  <h3>Font size</h3>
+  <p>Use the font size dropdown (11–24px) in the note toolbar to adjust the body text size. The heading size is controlled separately in Settings.</p>
+
+  <h3>Heading font &amp; size</h3>
+  <p>Click the <strong>sliders icon</strong> (Settings) in the note toolbar to open the heading settings panel. Choose from 19 Google Fonts across 5 categories (Serif, Sans, Mono, Display, Script) and adjust the heading size with a slider (12–36px). Each font is previewed in its own typeface.</p>
+
+  <!-- LABELS -->
+  <h2 id="labels">Labels</h2>
+  <p>Labels are hashtag-style tags attached to notes. Type a label name in the label input at the bottom of a note and press <kbd>Enter</kbd> to add it. Click the <strong>×</strong> on any label to remove it.</p>
+  <p>Labels are searchable and filterable via the MCP API.</p>
+
+  <!-- ARRANGING -->
+  <h2 id="arranging">Arranging Notes</h2>
+
+  <h3>Moving notes</h3>
+  <p>Drag a note by its header bar or any empty area of its body. Notes snap to the top of the z-stack when clicked.</p>
+
+  <h3>Resizing notes</h3>
+  <ul style="margin:10px 0 16px 20px">
+    <li style="margin-bottom:6px"><strong>Corner handle</strong> (bottom-right) — drag to resize width and height simultaneously.</li>
+    <li style="margin-bottom:6px"><strong>Right edge strip</strong> — drag to resize width only.</li>
+    <li><strong>Bottom edge strip</strong> — drag to resize height only.</li>
+  </ul>
+  <p>Minimum note size is 220×140px.</p>
+
+  <!-- CONNECTIONS -->
+  <h2 id="connections">Connections</h2>
+  <p>Notes can be visually connected with bezier curve lines to show relationships.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body"><h4>Hover a note edge</h4><p>Orange connection dots appear on the top, right, bottom, and left edges.</p></div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body"><h4>Drag from a dot</h4><p>A live preview line appears as you drag across the canvas.</p></div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body"><h4>Drop on another dot</h4><p>Release over any connection dot on another note to create the connection.</p></div>
+    </div>
+  </div>
+
+  <p>Connection lines follow notes as they are dragged or resized. Click any connection line to delete it.</p>
+
+  <!-- GROUPS -->
+  <h2 id="groups">Groups</h2>
+  <p>Groups are named, semi-transparent rounded rectangles that sit behind notes, letting you cluster related notes visually.</p>
+
+  <h3>Creating groups</h3>
+  <p>Click the <strong>New Group</strong> button in the toolbar. The group appears on the canvas and can be named, repositioned, resized, and colored.</p>
+
+  <h3>Adding notes to a group</h3>
+  <p>Right-click any ungrouped note and choose <em>Add to Group</em>. A submenu lists all available groups by color and name. The note moves inside the group's bounds if it is currently outside.</p>
+
+  <h3>Removing notes from a group</h3>
+  <p>Right-click a grouped note and choose <em>Remove from Group</em>. The note stays at its current position on the canvas, now ungrouped.</p>
+
+  <h3>Minimizing groups</h3>
+  <p>Click the <strong>chevron ∨</strong> button in a group's header bar to minimize it. The group collapses to a slim pill showing only its name, and all notes inside are hidden (along with their connection lines). Click the pill or the <strong>∧</strong> chevron to restore everything.</p>
+
+  <h3>Group controls</h3>
+  <ul style="margin:10px 0 16px 20px">
+    <li style="margin-bottom:6px"><strong>Drag</strong> the header bar to move the group.</li>
+    <li style="margin-bottom:6px"><strong>Resize handle</strong> (bottom-right corner) to resize.</li>
+    <li style="margin-bottom:6px"><strong>Color dot</strong> — click to open the group color picker.</li>
+    <li><strong>× button</strong> — delete the group (notes inside are ungrouped, not deleted).</li>
+  </ul>
+
+  <!-- NAVIGATION -->
+  <h2 id="navigation">Navigation &amp; Zoom</h2>
+
+  <h3>Panning</h3>
+  <ul style="margin:10px 0 14px 20px">
+    <li style="margin-bottom:6px">Hold <kbd>Space</kbd> and drag to pan.</li>
+    <li style="margin-bottom:6px">Middle-mouse drag to pan.</li>
+    <li>Scroll (without Ctrl) to pan.</li>
+  </ul>
+
+  <h3>Zooming</h3>
+  <ul style="margin:10px 0 14px 20px">
+    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>Scroll</kbd> — zoom toward the cursor.</li>
+    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>+</kbd> — zoom in.</li>
+    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>-</kbd> — zoom out.</li>
+    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>0</kbd> — reset zoom to 100%.</li>
+    <li>Toolbar <strong>− / +</strong> buttons and the <strong>⊙</strong> reset button.</li>
+  </ul>
+  <p>Zoom range: 25%–300%. Zoom level is saved per workspace.</p>
+
+  <!-- MINIMAP -->
+  <h2 id="minimap">Minimap</h2>
+  <p>The minimap (bottom-right corner) shows a live scaled-down view of the entire 4000×3000 canvas. Notes are rendered with their actual background colors. An orange rectangle shows the current viewport.</p>
+
+  <h3>Minimap interactions</h3>
+  <ul style="margin:10px 0 14px 20px">
+    <li style="margin-bottom:6px"><strong>Drag the orange rectangle</strong> to pan the main canvas.</li>
+    <li style="margin-bottom:6px"><strong>Click anywhere</strong> on the minimap to jump the view to that location.</li>
+    <li><strong>∨ / ∧ chevron</strong> in the minimap header to collapse it to a slim bar or expand it back.</li>
+  </ul>
+
+  <!-- WORKSPACES -->
+  <h2 id="workspaces">Workspaces</h2>
+  <p>Workspaces are completely independent canvases. Each has its own notes, groups, connections, pan position, and zoom level.</p>
+
+  <h3>Workspace switcher</h3>
+  <p>The workspace switcher pill in the toolbar shows the current workspace name. Click it to open the dropdown, which lists all workspaces with their note counts.</p>
+
+  <h3>Creating workspaces</h3>
+  <p>Type a name in the <em>New workspace name…</em> field at the bottom of the dropdown and press <kbd>Enter</kbd> or click <strong>+</strong>. A starter note is created automatically.</p>
+
+  <h3>Renaming workspaces</h3>
+  <p>Click the <strong>gear icon</strong> next to the workspace pill to open the Workspace Settings dialog. Edit the name and press <kbd>Enter</kbd>.</p>
+
+  <h3>Deleting workspaces</h3>
+  <p>Hover a workspace in the dropdown to reveal its <strong>×</strong> delete button. The last workspace cannot be deleted.</p>
+
+  <!-- IMPORT EXPORT -->
+  <h2 id="import-export">Import &amp; Export</h2>
+  <p><strong>Export</strong> — Click the download icon in the toolbar. The current workspace is exported as a <code>.json</code> file named <code>darknotes-{workspace-name}-{date}.json</code>.</p>
+  <p><strong>Import</strong> — Click the upload icon and select a previously exported JSON file. The notes are imported as a <em>new workspace</em> — your current board is not affected.</p>
+  <p><strong>Clear All</strong> — Deletes all notes and connections in the current workspace only (after confirmation).</p>
+
+  <hr>
+
+  <!-- MCP OVERVIEW -->
+  <h2 id="mcp-overview">MCP Integration — Overview</h2>
+  <p>The DarkNotes MCP server exposes your notes to <strong>Claude</strong> and any <a href="https://modelcontextprotocol.io">Model Context Protocol</a>-compatible AI client. You can ask Claude to read notes, create new ones, check off tasks, reorganise workspaces, and more — without opening the browser.</p>
+
+  <p>The server runs two services:</p>
+  <ul style="margin:10px 0 18px 20px">
+    <li style="margin-bottom:8px"><strong>MCP stdio server</strong> — Claude Desktop and Claude Code connect here to call tools.</li>
+    <li><strong>REST API</strong> (port 3737) — the browser app syncs here so Claude always sees fresh data.</li>
+  </ul>
+
+  <div class="callout"><strong>Note:</strong> All data is stored in <code>~/.darknotes/data.json</code>. The app works fully offline without the server — localStorage is always kept in sync as a fallback.</div>
+
+  <!-- MCP SETUP -->
+  <h2 id="mcp-setup">Setup</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Install dependencies</h4>
+        <pre>cd darknotes-mcp
+npm install</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Start the server</h4>
+        <pre># API + MCP together (recommended)
+node src/server.js --both
+
+# API only (browser sync, no MCP)
+node src/server.js --api
+
+# MCP only (Claude Desktop / Claude Code)
+node src/server.js</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Configure Claude Desktop</h4>
+        <p>Add to <code>claude_desktop_config.json</code>:</p>
+        <pre>{
+  "mcpServers": {
+    "darknotes": {
+      "command": "node",
+      "args": ["/absolute/path/to/darknotes-mcp/src/server.js"]
+    }
+  }
+}</pre>
+        <p style="margin-top:8px;font-size:13px;color:var(--ink-muted)">
+          Config location — macOS: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code><br>
+          Windows: <code>%APPDATA%\Claude\claude_desktop_config.json</code>
+        </p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Configure Claude Code</h4>
+        <pre>claude mcp add darknotes node /absolute/path/to/darknotes-mcp/src/server.js</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Verify connection</h4>
+        <p>Open <code>notes-app.html</code>. The dot next to the note count turns <strong style="color:#27ae60">green</strong> when the API is reachable.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP TOOLS -->
+  <h2 id="mcp-tools">MCP Tools Reference</h2>
+  <p>All tools operate on <code>~/.darknotes/data.json</code>. The <code>workspaceId</code> parameter defaults to the current workspace when omitted.</p>
+
+  <h3>Workspace tools</h3>
+  <table class="tool-table">
+    <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
+    <tr><td class="tool-name">list_workspaces</td><td>List all workspaces with note and group counts.</td><td>—</td></tr>
+    <tr><td class="tool-name">create_workspace</td><td>Create a new workspace.</td><td><code>name</code></td></tr>
+    <tr><td class="tool-name">rename_workspace</td><td>Rename an existing workspace.</td><td><code>workspaceId</code>, <code>name</code></td></tr>
+    <tr><td class="tool-name">delete_workspace</td><td>Delete a workspace and all its contents.</td><td><code>workspaceId</code></td></tr>
+  </table>
+
+  <h3>Note tools</h3>
+  <table class="tool-table">
+    <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
+    <tr><td class="tool-name">list_notes</td><td>List notes with optional filters.</td><td><code>search</code>, <code>label</code>, <code>groupId</code></td></tr>
+    <tr><td class="tool-name">get_note</td><td>Get full note content including all lines.</td><td><code>noteId</code></td></tr>
+    <tr><td class="tool-name">create_note</td><td>Create a note. Body can be plain text or a <code>lines</code> array.</td><td><code>heading</code>, <code>body</code> or <code>lines</code>, <code>labels</code>, <code>bgColor</code>, <code>groupId</code></td></tr>
+    <tr><td class="tool-name">update_note</td><td>Update any note field. Only supplied fields change.</td><td><code>noteId</code>, any note field</td></tr>
+    <tr><td class="tool-name">delete_note</td><td>Delete a note and its connections.</td><td><code>noteId</code></td></tr>
+    <tr><td class="tool-name">append_to_note</td><td>Append lines without replacing existing content.</td><td><code>noteId</code>, <code>body</code> or <code>lines</code></td></tr>
+    <tr><td class="tool-name">add_label</td><td>Add a label tag to a note.</td><td><code>noteId</code>, <code>label</code></td></tr>
+    <tr><td class="tool-name">remove_label</td><td>Remove a label from a note.</td><td><code>noteId</code>, <code>label</code></td></tr>
+    <tr><td class="tool-name">check_item</td><td>Check or uncheck a checklist item by line index.</td><td><code>noteId</code>, <code>lineIndex</code>, <code>checked</code></td></tr>
+  </table>
+
+  <h3>Group tools</h3>
+  <table class="tool-table">
+    <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
+    <tr><td class="tool-name">list_groups</td><td>List all groups with their note counts.</td><td>—</td></tr>
+    <tr><td class="tool-name">create_group</td><td>Create a new group.</td><td><code>name</code>, <code>color</code></td></tr>
+    <tr><td class="tool-name">delete_group</td><td>Delete a group (notes are ungrouped, not deleted).</td><td><code>groupId</code></td></tr>
+    <tr><td class="tool-name">add_note_to_group</td><td>Move a note into a group.</td><td><code>noteId</code>, <code>groupId</code></td></tr>
+    <tr><td class="tool-name">remove_note_from_group</td><td>Ungroup a note.</td><td><code>noteId</code></td></tr>
+  </table>
+
+  <h3>Connection tools</h3>
+  <table class="tool-table">
+    <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
+    <tr><td class="tool-name">list_connections</td><td>List all connections with note headings resolved.</td><td>—</td></tr>
+    <tr><td class="tool-name">create_connection</td><td>Draw a connection between two notes.</td><td><code>fromNote</code>, <code>fromSide</code>, <code>toNote</code>, <code>toSide</code></td></tr>
+    <tr><td class="tool-name">delete_connection</td><td>Remove a connection line.</td><td><code>connectionId</code></td></tr>
+  </table>
+
+  <h3>Search</h3>
+  <table class="tool-table">
+    <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
+    <tr><td class="tool-name">search</td><td>Full-text search across all workspaces (heading, body, labels).</td><td><code>query</code></td></tr>
+  </table>
+
+  <!-- REST API -->
+  <h2 id="rest-api">REST API Reference</h2>
+  <p>Base URL: <code>http://localhost:3737/api</code></p>
+
+  <h3>Workspaces</h3>
+  <table class="api-table">
+    <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces</td><td>List all workspaces</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces</td><td>Create workspace <code>{ name }</code></td></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId</td><td>Get full workspace</td></tr>
+    <tr><td><span class="method patch">PATCH</span></td><td class="endpoint">/workspaces/:wsId</td><td>Update workspace fields</td></tr>
+    <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId</td><td>Delete workspace</td></tr>
+    <tr><td><span class="method put">PUT</span></td><td class="endpoint">/workspaces/:wsId/board</td><td>Save full board state (browser sync)</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/activate</td><td>Set as current workspace</td></tr>
+  </table>
+
+  <h3>Notes</h3>
+  <table class="api-table">
+    <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId/notes</td><td>List notes. Query: <code>?search=</code> <code>&amp;label=</code> <code>&amp;groupId=</code></td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/notes</td><td>Create note</td></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId/notes/:noteId</td><td>Get note</td></tr>
+    <tr><td><span class="method patch">PATCH</span></td><td class="endpoint">/workspaces/:wsId/notes/:noteId</td><td>Update note fields</td></tr>
+    <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId/notes/:noteId</td><td>Delete note</td></tr>
+  </table>
+
+  <h3>Groups &amp; Connections</h3>
+  <table class="api-table">
+    <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId/groups</td><td>List groups</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/groups</td><td>Create group</td></tr>
+    <tr><td><span class="method patch">PATCH</span></td><td class="endpoint">/workspaces/:wsId/groups/:groupId</td><td>Update group</td></tr>
+    <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId/groups/:groupId</td><td>Delete group</td></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId/connections</td><td>List connections</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/connections</td><td>Create connection</td></tr>
+    <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId/connections/:connId</td><td>Delete connection</td></tr>
+  </table>
+
+  <h3>Utilities</h3>
+  <table class="api-table">
+    <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/search?q=query</td><td>Search notes across all workspaces</td></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">http://localhost:3737/health</td><td>Health check (root level) — returns <code>{ ok: true }</code></td></tr>
+  </table>
+
+  <!-- MCP EXAMPLES -->
+  <h2 id="mcp-examples">Usage Examples with Claude</h2>
+  <p>Once the MCP server is configured, you can talk to Claude naturally:</p>
+
+  <h3>Reading notes</h3>
+  <pre>"Show me all my notes in the Work workspace"
+"Search my notes for anything about the Q3 report"
+"List all notes tagged #urgent"
+"What are the incomplete items in my Shopping checklist note?"</pre>
+
+  <h3>Creating content</h3>
+  <pre>"Create a note called 'Meeting Notes' with today's agenda items as a checklist"
+"Add a new workspace called 'Side Project' and create three notes for tasks, ideas, and research"
+"Append action items from our conversation to my 'Project Tracker' note"</pre>
+
+  <h3>Organising</h3>
+  <pre>"Create a group called 'In Progress' and move all notes tagged #active into it"
+"Connect the 'Requirements' note to the 'Design' note on the left side"
+"Check off the first two items in my grocery list note"
+"Move all notes mentioning 'marketing' to a new workspace"</pre>
+
+  <hr>
+
+  <!-- SHORTCUTS -->
+  <h2 id="shortcuts">Keyboard Shortcuts</h2>
+  <table class="shortcut-table">
+    <tr><th>Action</th><th>Shortcut</th></tr>
+    <tr><td>Pan canvas</td><td><kbd>Space</kbd> + drag</td></tr>
+    <tr><td>Zoom in</td><td><kbd>Ctrl</kbd>+<kbd>=</kbd> or toolbar +</td></tr>
+    <tr><td>Zoom out</td><td><kbd>Ctrl</kbd>+<kbd>-</kbd> or toolbar −</td></tr>
+    <tr><td>Reset zoom</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd> or toolbar ⊙</td></tr>
+    <tr><td>Zoom to cursor</td><td><kbd>Ctrl</kbd>+<kbd>Scroll</kbd></td></tr>
+    <tr><td>New line below</td><td><kbd>Enter</kbd> (in note body)</td></tr>
+    <tr><td>Line break in line</td><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td></tr>
+    <tr><td>Toggle checkbox line</td><td><kbd>Tab</kbd> (in note body)</td></tr>
+    <tr><td>Delete empty line</td><td><kbd>Backspace</kbd> on empty line</td></tr>
+    <tr><td>Save workspace name</td><td><kbd>Enter</kbd> (in workspace dialog)</td></tr>
+    <tr><td>Create workspace</td><td><kbd>Enter</kbd> (in new workspace field)</td></tr>
+    <tr><td>Cancel workspace rename</td><td><kbd>Escape</kbd></td></tr>
+  </table>
+
+  <!-- DATA -->
+  <h2 id="data">Data &amp; Privacy</h2>
+  <p>All DarkNotes data is stored <strong>locally on your machine</strong>:</p>
+  <ul style="margin:10px 0 16px 20px">
+    <li style="margin-bottom:6px"><strong>Browser</strong>: <code>localStorage</code> (under the <code>darknotes_*</code> keys) keeps the app working offline at all times.</li>
+    <li style="margin-bottom:6px"><strong>MCP server</strong>: <code>~/.darknotes/data.json</code> — plain, human-readable JSON. Back it up, version-control it, or copy it between machines freely.</li>
+  </ul>
+  <p>No data is sent to any cloud service. The MCP server only communicates locally — via stdio to Claude, and HTTP on localhost.</p>
+
+  <div class="callout tip"><strong>Backup tip:</strong> Copy <code>~/.darknotes/data.json</code> to back up all your workspaces, or export individual workspaces from the toolbar for sharing.</div>
+
+</main>
+</div>
+
+<script>
+  // Highlight active nav link on scroll
+  const links = document.querySelectorAll('.nav-link');
+  const headings = document.querySelectorAll('h2[id], h3[id]');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -75% 0px' });
+
+  headings.forEach(h => observer.observe(h));
+</script>
+</body>
+</html>
