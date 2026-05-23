@@ -6,7 +6,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import { readData, writeData, getWorkspace } from './store.js';
+import { readData, writeData, getWorkspace, collectionToMap } from './store.js';
 
 export function createApiRouter() {
   const router = express.Router();
@@ -86,9 +86,9 @@ export function createApiRouter() {
     if (!ws) return res.status(404).json({ error: 'Workspace not found' });
     const { notes, groups, connections, boardOffsetX, boardOffsetY, boardZoom,
             nextNoteId, nextGroupId, nextConnectionId } = req.body;
-    if (notes !== undefined) ws.notes = notes;
-    if (groups !== undefined) ws.groups = groups;
-    if (connections !== undefined) ws.connections = connections;
+    if (notes !== undefined) ws.notes = collectionToMap(notes);
+    if (groups !== undefined) ws.groups = collectionToMap(groups);
+    if (connections !== undefined) ws.connections = collectionToMap(connections);
     if (boardOffsetX !== undefined) ws.boardOffsetX = boardOffsetX;
     if (boardOffsetY !== undefined) ws.boardOffsetY = boardOffsetY;
     if (boardZoom !== undefined) ws.boardZoom = boardZoom;

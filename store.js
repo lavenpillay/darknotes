@@ -20,11 +20,39 @@ function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+/** Browser board sync uses arrays; MCP/API tools use id-keyed objects. */
+export function collectionToMap(coll) {
+  if (!coll) return {};
+  if (Array.isArray(coll)) {
+    const map = {};
+    for (const item of coll) {
+      if (item?.id) map[item.id] = item;
+    }
+    return map;
+  }
+  return { ...coll };
+}
+
+export function normalizeWorkspace(ws) {
+  if (!ws) return ws;
+  ws.notes = collectionToMap(ws.notes);
+  ws.groups = collectionToMap(ws.groups);
+  ws.connections = collectionToMap(ws.connections);
+  return ws;
+}
+
+function normalizeData(data) {
+  for (const ws of Object.values(data.workspaces || {})) {
+    normalizeWorkspace(ws);
+  }
+  return data;
+}
+
 export function readData() {
   ensureDataDir();
   if (!fs.existsSync(DATA_FILE)) return defaultData();
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    return normalizeData(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')));
   } catch {
     return defaultData();
   }
@@ -32,6 +60,7 @@ export function readData() {
 
 export function writeData(data) {
   ensureDataDir();
+  normalizeData(data);
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
