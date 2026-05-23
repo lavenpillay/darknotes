@@ -4,16 +4,18 @@
  * ─────────────
  * Runs two services:
  *   1. MCP stdio server  — Claude / MCP clients connect via stdin/stdout
- *   2. REST API server   — DarkNotes browser app connects via HTTP on port 3737
+ *   2. REST API + web app  — http://localhost:3737 (app + /api)
  *
  * Usage:
- *   node src/server.js            # MCP mode (stdio) — used by Claude Desktop / Claude Code
- *   node src/server.js --api      # API-only mode (for running alongside the browser app)
- *   node src/server.js --both     # Run both simultaneously
+ *   node server.js            # MCP mode (stdio) — used by Claude Desktop / Claude Code
+ *   node server.js --api      # API + browser app
+ *   node server.js --both     # Run both simultaneously
  */
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -29,6 +31,7 @@ const mode = args.includes('--both') ? 'both'
            : args.includes('--api')  ? 'api'
            : 'mcp';   // default: MCP stdio (for Claude Desktop / claude config)
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_PORT = process.env.DARKNOTES_PORT || 3737;
 
 // ─── REST API Server ──────────────────────────────────────────────────────────
@@ -42,8 +45,13 @@ async function startApiServer() {
 
   app.get('/health', (req, res) => res.json({ ok: true, service: 'darknotes-api' }));
 
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'darknotes-app.html'));
+  });
+
   app.listen(API_PORT, () => {
-    console.error(`DarkNotes REST API running at http://localhost:${API_PORT}`);
+    console.error(`DarkNotes app running at http://localhost:${API_PORT}`);
+    console.error(`REST API: http://localhost:${API_PORT}/api`);
     console.error(`Health check: http://localhost:${API_PORT}/health`);
   });
 }

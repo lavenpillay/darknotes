@@ -2115,12 +2115,12 @@
     // ═══════════════════════════════════════════════════
     // PERSISTENCE — API-first with localStorage fallback
     // ═══════════════════════════════════════════════════
-    const API_BASE = 'http://localhost:3737/api';
+    const API_BASE = '/api';
     let apiAvailable = false;
 
     async function checkApi() {
       try {
-        const r = await fetch('http://localhost:3737/health', { signal: AbortSignal.timeout(800) });
+        const r = await fetch('/health', { signal: AbortSignal.timeout(800) });
         apiAvailable = r.ok;
       } catch { apiAvailable = false; }
       const dot = document.getElementById('api-status');
