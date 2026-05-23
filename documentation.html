@@ -4,238 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DarkNotes — Documentation</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #f5f0e8;
-    --surface: #faf7f2;
-    --ink: #1a1612;
-    --ink-muted: #7a7268;
-    --accent: #c4522a;
-    --accent-light: #f3e0d8;
-    --border: #e0d8cc;
-    --code-bg: #f0ebe3;
-    --shadow: rgba(26,22,18,0.10);
-  }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.7;
-    font-size: 15px;
-  }
-
-  /* ── LAYOUT ── */
-  .page { display: flex; min-height: 100vh; }
-
-  aside {
-    width: 260px; flex-shrink: 0;
-    position: fixed; top: 0; left: 0; bottom: 0;
-    background: var(--surface);
-    border-right: 1.5px solid var(--border);
-    overflow-y: auto; padding: 32px 0 48px;
-    z-index: 100;
-  }
-
-  main {
-    margin-left: 260px;
-    max-width: 860px; padding: 60px 56px 100px;
-    flex: 1;
-  }
-
-  /* ── SIDEBAR ── */
-  .sidebar-logo {
-    font-family: 'Playfair Display', serif;
-    font-size: 22px; font-weight: 600;
-    color: var(--ink); padding: 0 24px 28px;
-    border-bottom: 1.5px solid var(--border);
-    margin-bottom: 16px;
-    display: block;
-    letter-spacing: -0.3px;
-  }
-  .sidebar-logo span { color: var(--accent); }
-
-  .nav-section { margin-bottom: 6px; }
-  .nav-section-title {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--ink-muted);
-    padding: 10px 24px 4px; display: block;
-  }
-  .nav-link {
-    display: block; padding: 6px 24px;
-    color: var(--ink-muted); text-decoration: none;
-    font-size: 13.5px; font-weight: 400;
-    transition: color 0.12s, background 0.12s;
-    border-left: 2.5px solid transparent;
-    margin-left: -1px;
-  }
-  .nav-link:hover { color: var(--accent); background: var(--accent-light); }
-  .nav-link.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
-
-  /* ── CONTENT ── */
-  h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: 42px; font-weight: 700; line-height: 1.15;
-    color: var(--ink); margin-bottom: 16px;
-    letter-spacing: -0.5px;
-  }
-  h1 .accent { color: var(--accent); }
-
-  .subtitle {
-    font-size: 17px; color: var(--ink-muted); margin-bottom: 52px;
-    max-width: 580px; line-height: 1.6;
-  }
-
-  h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: 26px; font-weight: 600;
-    color: var(--ink); margin: 60px 0 16px;
-    padding-top: 60px;
-    border-top: 1.5px solid var(--border);
-    scroll-margin-top: 40px;
-  }
-  h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
-
-  h3 {
-    font-size: 16px; font-weight: 600;
-    color: var(--ink); margin: 32px 0 10px;
-    scroll-margin-top: 40px;
-  }
-
-  p { margin-bottom: 14px; color: var(--ink); max-width: 680px; }
-
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-
-  /* ── FEATURE CARDS ── */
-  .feature-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 16px; margin: 24px 0 36px;
-  }
-  .feature-card {
-    background: var(--surface); border: 1.5px solid var(--border);
-    border-radius: 12px; padding: 20px 22px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .feature-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px var(--shadow); }
-  .feature-card h4 {
-    font-size: 14px; font-weight: 600; margin-bottom: 6px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .feature-card h4 .icon { font-size: 18px; }
-  .feature-card p { font-size: 13px; color: var(--ink-muted); margin: 0; }
-
-  /* ── KEYBOARD SHORTCUTS ── */
-  .shortcut-table { width: 100%; border-collapse: collapse; margin: 16px 0 32px; }
-  .shortcut-table th {
-    text-align: left; font-size: 11px; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--ink-muted); padding: 8px 14px;
-    border-bottom: 1.5px solid var(--border);
-  }
-  .shortcut-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-  .shortcut-table tr:last-child td { border-bottom: none; }
-  .shortcut-table tr:hover td { background: var(--accent-light); }
-
-  kbd {
-    display: inline-block; font-family: 'DM Mono', monospace;
-    font-size: 11px; padding: 2px 7px; border-radius: 5px;
-    background: var(--code-bg); border: 1px solid var(--border);
-    color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-  }
-
-  /* ── TOOL TABLE ── */
-  .tool-table { width: 100%; border-collapse: collapse; margin: 16px 0 32px; font-size: 13.5px; }
-  .tool-table th {
-    text-align: left; font-size: 11px; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--ink-muted); padding: 8px 14px;
-    border-bottom: 1.5px solid var(--border); background: var(--surface);
-  }
-  .tool-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
-  .tool-table tr:last-child td { border-bottom: none; }
-  .tool-table tr:hover td { background: var(--accent-light); }
-  .tool-name { font-family: 'DM Mono', monospace; font-size: 12.5px; color: var(--accent); font-weight: 500; }
-  .tool-badge {
-    display: inline-block; font-size: 10px; font-weight: 600;
-    padding: 1px 7px; border-radius: 20px; margin-left: 4px;
-    background: var(--accent-light); color: var(--accent);
-    letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle;
-  }
-
-  /* ── CODE BLOCKS ── */
-  pre {
-    background: var(--code-bg); border: 1.5px solid var(--border);
-    border-radius: 10px; padding: 18px 20px; overflow-x: auto;
-    font-family: 'DM Mono', monospace; font-size: 12.5px;
-    line-height: 1.7; margin: 14px 0 24px; color: var(--ink);
-  }
-  code { font-family: 'DM Mono', monospace; font-size: 12.5px;
-    background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
-
-  /* ── CALLOUTS ── */
-  .callout {
-    border-left: 3px solid var(--accent); background: var(--accent-light);
-    border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 20px 0 28px;
-    font-size: 13.5px;
-  }
-  .callout strong { color: var(--accent); }
-  .callout.tip { border-color: #27ae60; background: #eafaf1; }
-  .callout.tip strong { color: #27ae60; }
-
-  /* ── API ENDPOINT TABLE ── */
-  .api-table { width: 100%; border-collapse: collapse; margin: 16px 0 28px; font-size: 13px; }
-  .api-table th {
-    text-align: left; padding: 8px 12px; font-size: 10.5px; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted);
-    border-bottom: 1.5px solid var(--border); background: var(--surface);
-  }
-  .api-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
-  .api-table tr:last-child td { border-bottom: none; }
-  .method {
-    font-family: 'DM Mono', monospace; font-size: 10.5px; font-weight: 700;
-    padding: 2px 7px; border-radius: 4px; display: inline-block;
-  }
-  .method.get    { background: #e3f2fd; color: #1565c0; }
-  .method.post   { background: #e8f5e9; color: #2e7d32; }
-  .method.patch  { background: #fff8e1; color: #e65100; }
-  .method.put    { background: #f3e5f5; color: #6a1b9a; }
-  .method.delete { background: #fce4ec; color: #c62828; }
-  .endpoint { font-family: 'DM Mono', monospace; font-size: 12px; }
-
-  /* ── STEP LIST ── */
-  .steps { counter-reset: step; margin: 16px 0 28px; }
-  .step {
-    display: flex; gap: 16px; margin-bottom: 20px;
-    align-items: flex-start;
-  }
-  .step-num {
-    counter-increment: step;
-    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-    background: var(--accent); color: white;
-    font-size: 13px; font-weight: 600;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .step-body h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-  .step-body p  { font-size: 13.5px; color: var(--ink-muted); margin: 0; }
-
-  /* ── DIVIDER ── */
-  hr { border: none; border-top: 1.5px solid var(--border); margin: 48px 0; }
-
-  @media (max-width: 900px) {
-    aside { display: none; }
-    main { margin-left: 0; padding: 32px 24px 60px; }
-    .feature-grid { grid-template-columns: 1fr; }
-  }
-</style>
+<link rel="stylesheet" href="css/darknotes-docs-theme.css">
 </head>
-<body>
-<div class="page">
+<body class="dn-docs">
+<div class="dn-page">
 
 <!-- SIDEBAR -->
 <aside>
@@ -307,12 +79,12 @@
   <!-- INTERFACE -->
   <h2 id="interface">Interface</h2>
   <p>The app has three main areas:</p>
-  <ul style="margin:10px 0 20px 20px;color:var(--ink)">
-    <li style="margin-bottom:8px"><strong>Toolbar</strong> — fixed top bar with workspace switcher, note count, MCP status indicator, zoom controls, and action buttons.</li>
-    <li style="margin-bottom:8px"><strong>Canvas</strong> — the infinite scrollable/zoomable board where notes and groups live.</li>
+  <ul>
+    <li><strong>Toolbar</strong> — fixed top bar with workspace switcher, note count, MCP status indicator, zoom controls, and action buttons.</li>
+    <li><strong>Canvas</strong> — the infinite scrollable/zoomable board where notes and groups live.</li>
     <li><strong>Minimap</strong> — collapsible overview panel in the bottom-right corner.</li>
   </ul>
-  <p>The small coloured dot next to the note count in the toolbar shows the MCP server status: <strong style="color:#27ae60">green</strong> = online, <strong style="color:#aaa">grey</strong> = offline.</p>
+  <p>The small coloured dot next to the note count in the toolbar shows the MCP server status: <strong class="status-online">green</strong> = online, <strong class="text-muted">grey</strong> = offline.</p>
 
   <!-- CREATING NOTES -->
   <h2 id="creating-notes">Creating Notes</h2>
@@ -339,9 +111,9 @@
   <p>Checklists are inline with text — any line can be a plain text line or a checkbox line. You can freely mix them.</p>
 
   <h3>Creating checklist items</h3>
-  <ul style="margin:10px 0 16px 20px">
-    <li style="margin-bottom:6px">Click the <strong>☑ Toggle Checklist</strong> button in the note's hover toolbar to convert the current line to a checkbox (or back to text).</li>
-    <li style="margin-bottom:6px">Press <kbd>Tab</kbd> on any line to toggle between text and checkbox.</li>
+  <ul>
+    <li>Click the <strong>☑ Toggle Checklist</strong> button in the note's hover toolbar to convert the current line to a checkbox (or back to text).</li>
+    <li>Press <kbd>Tab</kbd> on any line to toggle between text and checkbox.</li>
     <li>Press <kbd>Enter</kbd> on a checkbox line to create the next checkbox below.</li>
   </ul>
 
@@ -371,9 +143,9 @@
   <p>Drag a note by its header bar or any empty area of its body. Notes snap to the top of the z-stack when clicked.</p>
 
   <h3>Resizing notes</h3>
-  <ul style="margin:10px 0 16px 20px">
-    <li style="margin-bottom:6px"><strong>Corner handle</strong> (bottom-right) — drag to resize width and height simultaneously.</li>
-    <li style="margin-bottom:6px"><strong>Right edge strip</strong> — drag to resize width only.</li>
+  <ul>
+    <li><strong>Corner handle</strong> (bottom-right) — drag to resize width and height simultaneously.</li>
+    <li><strong>Right edge strip</strong> — drag to resize width only.</li>
     <li><strong>Bottom edge strip</strong> — drag to resize height only.</li>
   </ul>
   <p>Minimum note size is 220×140px.</p>
@@ -416,10 +188,10 @@
   <p>Click the <strong>chevron ∨</strong> button in a group's header bar to minimize it. The group collapses to a slim pill showing only its name, and all notes inside are hidden (along with their connection lines). Click the pill or the <strong>∧</strong> chevron to restore everything.</p>
 
   <h3>Group controls</h3>
-  <ul style="margin:10px 0 16px 20px">
-    <li style="margin-bottom:6px"><strong>Drag</strong> the header bar to move the group.</li>
-    <li style="margin-bottom:6px"><strong>Resize handle</strong> (bottom-right corner) to resize.</li>
-    <li style="margin-bottom:6px"><strong>Color dot</strong> — click to open the group color picker.</li>
+  <ul>
+    <li><strong>Drag</strong> the header bar to move the group.</li>
+    <li><strong>Resize handle</strong> (bottom-right corner) to resize.</li>
+    <li><strong>Color dot</strong> — click to open the group color picker.</li>
     <li><strong>× button</strong> — delete the group (notes inside are ungrouped, not deleted).</li>
   </ul>
 
@@ -427,18 +199,18 @@
   <h2 id="navigation">Navigation &amp; Zoom</h2>
 
   <h3>Panning</h3>
-  <ul style="margin:10px 0 14px 20px">
-    <li style="margin-bottom:6px">Hold <kbd>Space</kbd> and drag to pan.</li>
-    <li style="margin-bottom:6px">Middle-mouse drag to pan.</li>
+  <ul>
+    <li>Hold <kbd>Space</kbd> and drag to pan.</li>
+    <li>Middle-mouse drag to pan.</li>
     <li>Scroll (without Ctrl) to pan.</li>
   </ul>
 
   <h3>Zooming</h3>
-  <ul style="margin:10px 0 14px 20px">
-    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>Scroll</kbd> — zoom toward the cursor.</li>
-    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>+</kbd> — zoom in.</li>
-    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>-</kbd> — zoom out.</li>
-    <li style="margin-bottom:6px"><kbd>Ctrl</kbd>+<kbd>0</kbd> — reset zoom to 100%.</li>
+  <ul>
+    <li><kbd>Ctrl</kbd>+<kbd>Scroll</kbd> — zoom toward the cursor.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>+</kbd> — zoom in.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>-</kbd> — zoom out.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>0</kbd> — reset zoom to 100%.</li>
     <li>Toolbar <strong>− / +</strong> buttons and the <strong>⊙</strong> reset button.</li>
   </ul>
   <p>Zoom range: 25%–300%. Zoom level is saved per workspace.</p>
@@ -448,9 +220,9 @@
   <p>The minimap (bottom-right corner) shows a live scaled-down view of the entire 4000×3000 canvas. Notes are rendered with their actual background colors. An orange rectangle shows the current viewport.</p>
 
   <h3>Minimap interactions</h3>
-  <ul style="margin:10px 0 14px 20px">
-    <li style="margin-bottom:6px"><strong>Drag the orange rectangle</strong> to pan the main canvas.</li>
-    <li style="margin-bottom:6px"><strong>Click anywhere</strong> on the minimap to jump the view to that location.</li>
+  <ul>
+    <li><strong>Drag the orange rectangle</strong> to pan the main canvas.</li>
+    <li><strong>Click anywhere</strong> on the minimap to jump the view to that location.</li>
     <li><strong>∨ / ∧ chevron</strong> in the minimap header to collapse it to a slim bar or expand it back.</li>
   </ul>
 
@@ -483,8 +255,8 @@
   <p>The DarkNotes MCP server exposes your notes to <strong>Claude</strong> and any <a href="https://modelcontextprotocol.io">Model Context Protocol</a>-compatible AI client. You can ask Claude to read notes, create new ones, check off tasks, reorganise workspaces, and more — without opening the browser.</p>
 
   <p>The server runs two services:</p>
-  <ul style="margin:10px 0 18px 20px">
-    <li style="margin-bottom:8px"><strong>MCP stdio server</strong> — Claude Desktop and Claude Code connect here to call tools.</li>
+  <ul>
+    <li><strong>MCP stdio server</strong> — Claude Desktop and Claude Code connect here to call tools.</li>
     <li><strong>REST API</strong> (port 3737) — the browser app syncs here so Claude always sees fresh data.</li>
   </ul>
 
@@ -529,7 +301,7 @@ node src/server.js</pre>
     }
   }
 }</pre>
-        <p style="margin-top:8px;font-size:13px;color:var(--ink-muted)">
+        <p class="text-muted mt-sm">
           Config location — macOS: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code><br>
           Windows: <code>%APPDATA%\Claude\claude_desktop_config.json</code>
         </p>
@@ -546,7 +318,7 @@ node src/server.js</pre>
       <div class="step-num">5</div>
       <div class="step-body">
         <h4>Verify connection</h4>
-        <p>Open <code>notes-app.html</code>. The dot next to the note count turns <strong style="color:#27ae60">green</strong> when the API is reachable.</p>
+        <p>Open <code>darknotes-app.html</code>. The dot next to the note count turns <strong class="status-online">green</strong> when the API is reachable.</p>
       </div>
     </div>
   </div>
@@ -691,9 +463,9 @@ node src/server.js</pre>
   <!-- DATA -->
   <h2 id="data">Data &amp; Privacy</h2>
   <p>All DarkNotes data is stored <strong>locally on your machine</strong>:</p>
-  <ul style="margin:10px 0 16px 20px">
-    <li style="margin-bottom:6px"><strong>Browser</strong>: <code>localStorage</code> (under the <code>darknotes_*</code> keys) keeps the app working offline at all times.</li>
-    <li style="margin-bottom:6px"><strong>MCP server</strong>: <code>~/.darknotes/data.json</code> — plain, human-readable JSON. Back it up, version-control it, or copy it between machines freely.</li>
+  <ul>
+    <li><strong>Browser</strong>: <code>localStorage</code> (under the <code>darknotes_*</code> keys) keeps the app working offline at all times.</li>
+    <li><strong>MCP server</strong>: <code>~/.darknotes/data.json</code> — plain, human-readable JSON. Back it up, version-control it, or copy it between machines freely.</li>
   </ul>
   <p>No data is sent to any cloud service. The MCP server only communicates locally — via stdio to Claude, and HTTP on localhost.</p>
 

@@ -1,0 +1,554 @@
+/**
+ * DarkNotes Documentation Theme
+ * ─────────────────────────────
+ * Warm editorial palette aligned with the DarkNotes app (cream paper, terracotta accent).
+ *
+ * Usage:
+ *   1. Link Google Fonts (Playfair Display, DM Sans, DM Mono).
+ *   2. Link this stylesheet.
+ *   3. Add class="dn-docs" to <body>.
+ *   4. Use the layout/classes documented below.
+ *
+ * Layout skeleton:
+ *   <div class="dn-page">
+ *     <aside>…sidebar nav…</aside>
+ *     <main>…content…</main>
+ *   </div>
+ */
+
+/* ── Fonts (load in HTML <head> for best performance) ── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap');
+
+/* ── Design tokens ── */
+body.dn-docs {
+  --dn-bg: #f5f0e8;
+  --dn-surface: #faf7f2;
+  --dn-ink: #1a1612;
+  --dn-ink-muted: #7a7268;
+  --dn-accent: #c4522a;
+  --dn-accent-light: #f3e0d8;
+  --dn-border: #e0d8cc;
+  --dn-code-bg: #f0ebe3;
+  --dn-shadow: rgba(26, 22, 18, 0.1);
+  --dn-success: #27ae60;
+  --dn-success-bg: #eafaf1;
+  --dn-sidebar-width: 260px;
+  --dn-content-max: 860px;
+  --dn-font-sans: 'DM Sans', system-ui, sans-serif;
+  --dn-font-serif: 'Playfair Display', Georgia, serif;
+  --dn-font-mono: 'DM Mono', ui-monospace, monospace;
+}
+
+/* ── Reset (scoped) ── */
+body.dn-docs *,
+body.dn-docs *::before,
+body.dn-docs *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body.dn-docs {
+  font-family: var(--dn-font-sans);
+  background: var(--dn-bg);
+  color: var(--dn-ink);
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+body.dn-docs {
+  scroll-behavior: smooth;
+}
+
+/* ── Layout ── */
+body.dn-docs .dn-page {
+  display: flex;
+  min-height: 100vh;
+}
+
+body.dn-docs aside {
+  width: var(--dn-sidebar-width);
+  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--dn-surface);
+  border-right: 1.5px solid var(--dn-border);
+  overflow-y: auto;
+  padding: 32px 0 48px;
+  z-index: 100;
+}
+
+body.dn-docs main {
+  margin-left: var(--dn-sidebar-width);
+  max-width: var(--dn-content-max);
+  padding: 60px 56px 100px;
+  flex: 1;
+}
+
+/* ── Sidebar ── */
+body.dn-docs .sidebar-logo {
+  font-family: var(--dn-font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  padding: 0 24px 28px;
+  border-bottom: 1.5px solid var(--dn-border);
+  margin-bottom: 16px;
+  display: block;
+  letter-spacing: -0.3px;
+}
+
+body.dn-docs .sidebar-logo span {
+  color: var(--dn-accent);
+}
+
+body.dn-docs .nav-section {
+  margin-bottom: 6px;
+}
+
+body.dn-docs .nav-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dn-ink-muted);
+  padding: 10px 24px 4px;
+  display: block;
+}
+
+body.dn-docs .nav-link {
+  display: block;
+  padding: 6px 24px;
+  color: var(--dn-ink-muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 400;
+  transition: color 0.12s, background 0.12s;
+  border-left: 2.5px solid transparent;
+  margin-left: -1px;
+}
+
+body.dn-docs .nav-link:hover {
+  color: var(--dn-accent);
+  background: var(--dn-accent-light);
+}
+
+body.dn-docs .nav-link.active {
+  color: var(--dn-accent);
+  border-left-color: var(--dn-accent);
+  font-weight: 500;
+}
+
+/* ── Typography ── */
+body.dn-docs h1 {
+  font-family: var(--dn-font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--dn-ink);
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+body.dn-docs h1 .accent {
+  color: var(--dn-accent);
+}
+
+body.dn-docs .subtitle {
+  font-size: 17px;
+  color: var(--dn-ink-muted);
+  margin-bottom: 52px;
+  max-width: 580px;
+  line-height: 1.6;
+}
+
+body.dn-docs h2 {
+  font-family: var(--dn-font-serif);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  margin: 60px 0 16px;
+  padding-top: 60px;
+  border-top: 1.5px solid var(--dn-border);
+  scroll-margin-top: 40px;
+}
+
+body.dn-docs h2:first-of-type {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+body.dn-docs h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  margin: 32px 0 10px;
+  scroll-margin-top: 40px;
+}
+
+body.dn-docs h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+body.dn-docs p {
+  margin-bottom: 14px;
+  color: var(--dn-ink);
+  max-width: 680px;
+}
+
+body.dn-docs .text-muted {
+  color: var(--dn-ink-muted);
+  font-size: 13px;
+}
+
+body.dn-docs .mt-sm {
+  margin-top: 8px;
+}
+
+body.dn-docs a {
+  color: var(--dn-accent);
+  text-decoration: none;
+}
+
+body.dn-docs a:hover {
+  text-decoration: underline;
+}
+
+body.dn-docs ul,
+body.dn-docs ol {
+  margin: 10px 0 20px 20px;
+  color: var(--dn-ink);
+  max-width: 680px;
+}
+
+body.dn-docs li {
+  margin-bottom: 6px;
+}
+
+body.dn-docs li:last-child {
+  margin-bottom: 0;
+}
+
+body.dn-docs strong {
+  font-weight: 600;
+}
+
+body.dn-docs em {
+  font-style: italic;
+}
+
+/* ── Feature cards ── */
+body.dn-docs .feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0 36px;
+}
+
+body.dn-docs .feature-card {
+  background: var(--dn-surface);
+  border: 1.5px solid var(--dn-border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+body.dn-docs .feature-card:hover {
+  border-color: var(--dn-accent);
+  box-shadow: 0 4px 16px var(--dn-shadow);
+}
+
+body.dn-docs .feature-card h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body.dn-docs .feature-card h4 .icon {
+  font-size: 18px;
+}
+
+body.dn-docs .feature-card p {
+  font-size: 13px;
+  color: var(--dn-ink-muted);
+  margin: 0;
+  max-width: none;
+}
+
+/* ── Tables ── */
+body.dn-docs .shortcut-table,
+body.dn-docs .tool-table,
+body.dn-docs .api-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 32px;
+}
+
+body.dn-docs .shortcut-table {
+  margin-bottom: 32px;
+}
+
+body.dn-docs .tool-table,
+body.dn-docs .api-table {
+  font-size: 13.5px;
+}
+
+body.dn-docs .api-table {
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+body.dn-docs .shortcut-table th,
+body.dn-docs .tool-table th,
+body.dn-docs .api-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dn-ink-muted);
+  padding: 8px 14px;
+  border-bottom: 1.5px solid var(--dn-border);
+}
+
+body.dn-docs .api-table th {
+  font-size: 10.5px;
+  padding: 8px 12px;
+}
+
+body.dn-docs .tool-table th,
+body.dn-docs .api-table th {
+  background: var(--dn-surface);
+}
+
+body.dn-docs .shortcut-table td,
+body.dn-docs .tool-table td,
+body.dn-docs .api-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--dn-border);
+  font-size: 13.5px;
+}
+
+body.dn-docs .tool-table td,
+body.dn-docs .api-table td {
+  padding: 10px 14px;
+  vertical-align: top;
+}
+
+body.dn-docs .api-table td {
+  padding: 9px 12px;
+}
+
+body.dn-docs .shortcut-table tr:last-child td,
+body.dn-docs .tool-table tr:last-child td,
+body.dn-docs .api-table tr:last-child td {
+  border-bottom: none;
+}
+
+body.dn-docs .shortcut-table tr:hover td,
+body.dn-docs .tool-table tr:hover td {
+  background: var(--dn-accent-light);
+}
+
+body.dn-docs .tool-name {
+  font-family: var(--dn-font-mono);
+  font-size: 12.5px;
+  color: var(--dn-accent);
+  font-weight: 500;
+}
+
+body.dn-docs .tool-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 20px;
+  margin-left: 4px;
+  background: var(--dn-accent-light);
+  color: var(--dn-accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* ── Keyboard & inline code ── */
+body.dn-docs kbd {
+  display: inline-block;
+  font-family: var(--dn-font-mono);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--dn-code-bg);
+  border: 1px solid var(--dn-border);
+  color: var(--dn-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+body.dn-docs pre {
+  background: var(--dn-code-bg);
+  border: 1.5px solid var(--dn-border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  font-family: var(--dn-font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  margin: 14px 0 24px;
+  color: var(--dn-ink);
+  max-width: 680px;
+}
+
+body.dn-docs code {
+  font-family: var(--dn-font-mono);
+  font-size: 12.5px;
+  background: var(--dn-code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+body.dn-docs pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* ── Callouts ── */
+body.dn-docs .callout {
+  border-left: 3px solid var(--dn-accent);
+  background: var(--dn-accent-light);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  margin: 20px 0 28px;
+  font-size: 13.5px;
+  max-width: 680px;
+}
+
+body.dn-docs .callout strong {
+  color: var(--dn-accent);
+}
+
+body.dn-docs .callout.tip {
+  border-color: var(--dn-success);
+  background: var(--dn-success-bg);
+}
+
+body.dn-docs .callout.tip strong {
+  color: var(--dn-success);
+}
+
+/* ── HTTP method badges ── */
+body.dn-docs .method {
+  font-family: var(--dn-font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+body.dn-docs .method.get {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+body.dn-docs .method.post {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+body.dn-docs .method.patch {
+  background: #fff8e1;
+  color: #e65100;
+}
+
+body.dn-docs .method.put {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
+body.dn-docs .method.delete {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+body.dn-docs .endpoint {
+  font-family: var(--dn-font-mono);
+  font-size: 12px;
+}
+
+/* ── Numbered steps ── */
+body.dn-docs .steps {
+  counter-reset: dn-step;
+  margin: 16px 0 28px;
+}
+
+body.dn-docs .step {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: flex-start;
+}
+
+body.dn-docs .step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--dn-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.dn-docs .step-body h4 {
+  margin-bottom: 4px;
+}
+
+body.dn-docs .step-body p {
+  font-size: 13.5px;
+  color: var(--dn-ink-muted);
+  margin: 0;
+}
+
+body.dn-docs .step-body pre {
+  margin-top: 8px;
+}
+
+/* ── Utilities ── */
+body.dn-docs hr {
+  border: none;
+  border-top: 1.5px solid var(--dn-border);
+  margin: 48px 0;
+}
+
+body.dn-docs .status-online {
+  color: var(--dn-success);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  body.dn-docs aside {
+    display: none;
+  }
+
+  body.dn-docs main {
+    margin-left: 0;
+    padding: 32px 24px 60px;
+  }
+
+  body.dn-docs .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
