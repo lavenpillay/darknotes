@@ -50,9 +50,27 @@ The server supports different modes via command-line flags:
   node server.js --both
   ```
 
-### Configuration
-- **Port:** The API server defaults to port `3737`. You can override this with the `DARKNOTES_PORT` environment variable.
-- **Data Path:** Data is stored in `~/.darknotes/data.json`.
+### Running with Docker
+
+A lightweight `Dockerfile` is provided to run the DarkNotes server in a container.
+
+#### 1. Build the image
+```bash
+docker build -t darknotes-server .
+```
+
+#### 2. Run the container
+To persist your notes, mount a local directory to `/root/.darknotes` in the container.
+
+```bash
+docker run -d \
+  -p 3737:3737 \
+  -v ~/.darknotes:/root/.darknotes \
+  --name darknotes \
+  darknotes-server
+```
+
+The application will be available at `http://localhost:3737`.
 
 ## Development Conventions
 
