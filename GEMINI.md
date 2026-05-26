@@ -60,7 +60,7 @@ A lightweight `Dockerfile` is provided to run the DarkNotes server in a containe
 
 #### 1. Build the image
 ```bash
-docker build -t darknotes-server .
+docker build -t darknotes .
 ```
 
 #### 2. Run the container

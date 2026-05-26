@@ -56,7 +56,7 @@ A `Dockerfile` is provided for containerized execution.
 
 - **Build the image:**
   ```bash
-  docker build -t darknotes-server .
+  docker build -t darknotes .
   ```
 - **Run the container (persisting data):**
   ```bash

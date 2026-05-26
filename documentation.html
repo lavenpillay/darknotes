@@ -254,10 +254,10 @@
   <h2 id="mcp-overview">MCP Integration — Overview</h2>
   <p>The DarkNotes MCP server exposes your notes to <strong>Claude</strong> and any <a href="https://modelcontextprotocol.io">Model Context Protocol</a>-compatible AI client. You can ask Claude to read notes, create new ones, check off tasks, reorganise workspaces, and more — without opening the browser.</p>
 
-  <p>The server runs two services:</p>
+  <p>The server can be run directly with Node.js or as a <strong>Docker container</strong>. It runs two services:</p>
   <ul>
     <li><strong>MCP stdio server</strong> — Claude Desktop and Claude Code connect here to call tools.</li>
-    <li><strong>REST API</strong> (port 3737) — the browser app syncs here so Claude always sees fresh data.</li>
+    <li><strong>Streamable HTTP server</strong> (port 3737) — The browser app and remote/local MCP clients connect here via the <code>/mcp</code> endpoint.</li>
   </ul>
 
   <div class="callout"><strong>Note:</strong> All data is stored in <code>~/.darknotes/data.json</code>. The app works fully offline without the server — localStorage is always kept in sync as a fallback.</div>
@@ -269,35 +269,49 @@
     <div class="step">
       <div class="step-num">1</div>
       <div class="step-body">
-        <h4>Install dependencies</h4>
-        <pre>cd darknotes-mcp
-npm install</pre>
+        <h4>Option A: Run with Docker (Recommended)</h4>
+        <pre># Build the image
+docker build -t darknotes .
+
+# Run the container (persisting your notes)
+docker run -d \
+  -p 3737:3737 \
+  -v ~/.darknotes:/root/.darknotes \
+  --name darknotes \
+  darknotes</pre>
       </div>
     </div>
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-body">
-        <h4>Start the server</h4>
-        <pre># API + MCP together (recommended)
-node src/server.js --both
+        <h4>Option B: Run with Node.js</h4>
+        <pre>npm install
 
-# API only (browser sync, no MCP)
-node src/server.js --api
-
-# MCP only (Claude Desktop / Claude Code)
-node src/server.js</pre>
+# Start in combined mode (Stdio + HTTP)
+node server.js --both</pre>
       </div>
     </div>
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <h4>Configure Claude Desktop</h4>
+        <h4>Connect an MCP Client</h4>
+        <p>DarkNotes uses <strong>Streamable HTTP</strong> transport. It supports permissive CORS and requires no authentication, making it compatible with local models and browser-based AI tools.</p>
+        <ul>
+          <li><strong>Endpoint:</strong> <code>http://localhost:3737/mcp</code></li>
+          <li><strong>Method:</strong> POST (with <code>mcp-session-id</code> header for active sessions)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Configure Claude Desktop (Stdio)</h4>
         <p>Add to <code>claude_desktop_config.json</code>:</p>
         <pre>{
   "mcpServers": {
     "darknotes": {
       "command": "node",
-      "args": ["/absolute/path/to/darknotes-mcp/src/server.js"]
+      "args": ["/absolute/path/to/darknotes-mcp/server.js"]
     }
   }
 }</pre>
@@ -308,17 +322,10 @@ node src/server.js</pre>
       </div>
     </div>
     <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-body">
-        <h4>Configure Claude Code</h4>
-        <pre>claude mcp add darknotes node /absolute/path/to/darknotes-mcp/src/server.js</pre>
-      </div>
-    </div>
-    <div class="step">
       <div class="step-num">5</div>
       <div class="step-body">
-        <h4>Verify connection</h4>
-        <p>Open <code>darknotes-app.html</code>. The dot next to the note count turns <strong class="status-online">green</strong> when the API is reachable.</p>
+        <h4>Configure Claude Code (Stdio)</h4>
+        <pre>claude mcp add darknotes node /absolute/path/to/darknotes-mcp/server.js</pre>
       </div>
     </div>
   </div>
@@ -416,7 +423,9 @@ node src/server.js</pre>
   <table class="api-table">
     <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
     <tr><td><span class="method get">GET</span></td><td class="endpoint">/search?q=query</td><td>Search notes across all workspaces</td></tr>
-    <tr><td><span class="method get">GET</span></td><td class="endpoint">http://localhost:3737/health</td><td>Health check (root level) — returns <code>{ ok: true }</code></td></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/health</td><td>Health check — returns <code>{ ok: true }</code></td></tr>
+    <tr><td><span class="method get">GET</span></td><td class="endpoint">/documentation</td><td>Serve this documentation page</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/mcp</td><td>MCP Streamable HTTP entry point</td></tr>
   </table>
 
   <!-- MCP EXAMPLES -->
