@@ -73,12 +73,14 @@ function createMcpServer() {
 async function startApiServer() {
   const app = express();
 
-  // Very permissive CORS for MCP clients
+  // Fully permissive CORS for local models and MCP clients
   app.use(cors({
-    credentials: true,
+    origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-MCP-Version', 'X-Session-ID']
+    allowedHeaders: ['*']
   }));
+
+  console.error('Authentication: Disabled (No authentication required)');
 
   app.use(express.json({ limit: '10mb' }));
 
