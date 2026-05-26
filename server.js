@@ -89,6 +89,9 @@ async function startApiServer() {
   // REST API
   app.use('/api', createApiRouter());
 
+  // Static assets (CSS, etc.)
+  app.use('/css', express.static(path.join(__dirname, 'css')));
+
   // MCP Streamable HTTP Transport
   const mcpTransports = new Map();
 
@@ -142,6 +145,10 @@ async function startApiServer() {
 
   app.get('/health', (req, res) => res.json({ ok: true, service: 'darknotes-api' }));
 
+  app.get('/documentation', (req, res) => {
+    res.sendFile(path.join(__dirname, 'documentation.html'));
+  });
+
   app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'darknotes-app.html'));
   });
@@ -151,6 +158,7 @@ async function startApiServer() {
     console.error(`REST API: http://localhost:${API_PORT}/api`);
     console.error(`MCP HTTP: http://localhost:${API_PORT}/mcp`);
     console.error(`Health check: http://localhost:${API_PORT}/health`);
+    console.error(`Documentation: http://localhost:${API_PORT}/documentation`);
   });
 }
 
