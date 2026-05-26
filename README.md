@@ -23,23 +23,35 @@ npm install
 
 **API only** (browser app syncs here while you work):
 ```bash
-node src/server.js --api
+node server.js --api
 ```
 
 **MCP only** (for Claude Desktop / Claude Code — uses stdio):
 ```bash
-node src/server.js
+node server.js
 ```
 
 **Both simultaneously**:
 ```bash
-node src/server.js --both
+node server.js --both
 ```
 
 ### 3. Open the browser app
 Open `notes-app.html` in your browser. The green dot in the toolbar confirms the API is connected.
 
-### 4. Configure Claude Desktop (MCP)
+### 4. Configure MCP Clients
+
+#### Option A: Stdio (Node executable)
+This is the default for Claude Desktop. Use `node server.js` in your config.
+
+#### Option B: HTTP (SSE)
+You can connect to a running DarkNotes server via HTTP. This is useful for Docker or remote setups.
+1. Start the server with `node server.js --api` or `--both`.
+2. Connect your client to `http://localhost:3737/mcp/sse`.
+
+---
+
+### 5. Configure Claude Desktop (MCP)
 
 Add to your `claude_desktop_config.json`:
 ```json
@@ -47,7 +59,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "darknotes": {
       "command": "node",
-      "args": ["/absolute/path/to/darknotes-mcp/src/server.js"]
+      "args": ["/absolute/path/to/darknotes-mcp/server.js"]
     }
   }
 }
@@ -57,10 +69,10 @@ Config file location:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-### 5. Configure Claude Code (MCP)
+### 6. Configure Claude Code (MCP)
 
 ```bash
-claude mcp add darknotes node /absolute/path/to/darknotes-mcp/src/server.js
+claude mcp add darknotes node /absolute/path/to/darknotes-mcp/server.js
 ```
 
 ---

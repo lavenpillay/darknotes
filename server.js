@@ -18,6 +18,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
@@ -34,31 +35,9 @@ const mode = args.includes('--both') ? 'both'
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_PORT = process.env.DARKNOTES_PORT || 3737;
 
-// ─── REST API Server ──────────────────────────────────────────────────────────
+// ─── MCP Server Logic ─────────────────────────────────────────────────────────
 
-async function startApiServer() {
-  const app = express();
-  app.use(cors());
-  app.use(express.json({ limit: '10mb' }));
-
-  app.use('/api', createApiRouter());
-
-  app.get('/health', (req, res) => res.json({ ok: true, service: 'darknotes-api' }));
-
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'darknotes-app.html'));
-  });
-
-  app.listen(API_PORT, () => {
-    console.error(`DarkNotes app running at http://localhost:${API_PORT}`);
-    console.error(`REST API: http://localhost:${API_PORT}/api`);
-    console.error(`Health check: http://localhost:${API_PORT}/health`);
-  });
-}
-
-// ─── MCP Stdio Server ─────────────────────────────────────────────────────────
-
-async function startMcpServer() {
+function createMcpServer() {
   const server = new Server(
     { name: 'darknotes', version: '1.0.0' },
     { capabilities: { tools: {} } }
@@ -86,6 +65,88 @@ async function startMcpServer() {
     }
   });
 
+  return server;
+}
+
+// ─── REST API + MCP SSE Server ───────────────────────────────────────────────
+
+async function startApiServer() {
+  const app = express();
+
+  // Very permissive CORS for MCP clients
+  app.use(cors({
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-MCP-Version', 'X-Session-ID']
+  }));
+
+  app.use(express.json({ limit: '10mb' }));
+
+  // REST API
+  app.use('/api', createApiRouter());
+
+  // MCP SSE Transport
+  const sseTransports = new Map();
+
+  app.get('/mcp/sse', async (req, res) => {
+    console.error(`New MCP SSE connection attempt from ${req.ip} (${req.get('User-Agent') || 'no-agent'})`);
+    
+    // Create a dedicated server instance for this session to ensure isolation
+    const mcpServer = createMcpServer();
+    const transport = new SSEServerTransport('/mcp/messages', res);
+    const sessionId = transport.sessionId;
+    
+    sseTransports.set(sessionId, transport);
+    console.error(`MCP SSE session started: ${sessionId}`);
+
+    res.on('close', () => {
+      console.error(`MCP SSE session closed: ${sessionId}`);
+      sseTransports.delete(sessionId);
+    });
+
+    try {
+      await mcpServer.connect(transport);
+    } catch (err) {
+      console.error(`Failed to connect MCP server for session ${sessionId}:`, err);
+      res.end();
+    }
+  });
+
+  app.post('/mcp/messages', async (req, res) => {
+    const sessionId = req.query.sessionId;
+    const transport = sseTransports.get(sessionId);
+    
+    if (transport) {
+      try {
+        await transport.handlePostMessage(req, res);
+      } catch (err) {
+        console.error(`Error handling MCP message for session ${sessionId}:`, err);
+        res.status(500).send(err.message);
+      }
+    } else {
+      console.error(`MCP message received for unknown session: ${sessionId}`);
+      res.status(404).send('Session not found');
+    }
+  });
+
+  app.get('/health', (req, res) => res.json({ ok: true, service: 'darknotes-api' }));
+
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'darknotes-app.html'));
+  });
+
+  app.listen(API_PORT, () => {
+    console.error(`DarkNotes app running at http://localhost:${API_PORT}`);
+    console.error(`REST API: http://localhost:${API_PORT}/api`);
+    console.error(`MCP SSE: http://localhost:${API_PORT}/mcp/sse`);
+    console.error(`Health check: http://localhost:${API_PORT}/health`);
+  });
+}
+
+// ─── MCP Stdio Server ─────────────────────────────────────────────────────────
+
+async function startMcpStdioServer() {
+  const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('DarkNotes MCP server running (stdio)');
@@ -94,11 +155,11 @@ async function startMcpServer() {
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 if (mode === 'mcp') {
-  startMcpServer();
+  startMcpStdioServer();
 } else if (mode === 'api') {
   startApiServer();
 } else {
-  // --both: run API server + MCP server together
+  // --both: run API/SSE server + separate Stdio server
   startApiServer();
-  startMcpServer();
+  startMcpStdioServer();
 }
