@@ -18,11 +18,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  isInitializeRequest,
 } from '@modelcontextprotocol/sdk/types.js';
+import { randomUUID } from 'node:crypto';
 
 import { createApiRouter } from './api.js';
 import { TOOLS, handleTool } from './tools.js';
@@ -68,7 +70,7 @@ function createMcpServer() {
   return server;
 }
 
-// ─── REST API + MCP SSE Server ───────────────────────────────────────────────
+// ─── REST API + MCP HTTP Server ───────────────────────────────────────────────
 
 async function startApiServer() {
   const app = express();
@@ -87,47 +89,54 @@ async function startApiServer() {
   // REST API
   app.use('/api', createApiRouter());
 
-  // MCP SSE Transport
-  const sseTransports = new Map();
+  // MCP Streamable HTTP Transport
+  const mcpTransports = new Map();
 
-  app.get('/mcp/sse', async (req, res) => {
-    console.error(`New MCP SSE connection attempt from ${req.ip} (${req.get('User-Agent') || 'no-agent'})`);
-    
-    // Create a dedicated server instance for this session to ensure isolation
-    const mcpServer = createMcpServer();
-    const transport = new SSEServerTransport('/mcp/messages', res);
-    const sessionId = transport.sessionId;
-    
-    sseTransports.set(sessionId, transport);
-    console.error(`MCP SSE session started: ${sessionId}`);
+  app.all('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'];
+    let transport;
 
-    res.on('close', () => {
-      console.error(`MCP SSE session closed: ${sessionId}`);
-      sseTransports.delete(sessionId);
-    });
+    if (sessionId) {
+      transport = mcpTransports.get(sessionId);
+      if (!transport) {
+        return res.status(404).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Session not found' },
+          id: null,
+        });
+      }
+    } else if (isInitializeRequest(req.body)) {
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (id) => {
+          mcpTransports.set(id, transport);
+          console.error(`MCP Session initialized: ${id}`);
+        },
+        enableDnsRebindingProtection: false,
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          mcpTransports.delete(transport.sessionId);
+          console.error(`MCP Session closed: ${transport.sessionId}`);
+        }
+      };
+
+      const mcpServer = createMcpServer();
+      await mcpServer.connect(transport);
+    } else {
+      return res.status(400).json({
+        jsonrpc: '2.0',
+        error: { code: -32700, message: 'Parse error: Expected initialize request' },
+        id: null,
+      });
+    }
 
     try {
-      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, req.body);
     } catch (err) {
-      console.error(`Failed to connect MCP server for session ${sessionId}:`, err);
-      res.end();
-    }
-  });
-
-  app.post('/mcp/messages', async (req, res) => {
-    const sessionId = req.query.sessionId;
-    const transport = sseTransports.get(sessionId);
-    
-    if (transport) {
-      try {
-        await transport.handlePostMessage(req, res);
-      } catch (err) {
-        console.error(`Error handling MCP message for session ${sessionId}:`, err);
-        res.status(500).send(err.message);
-      }
-    } else {
-      console.error(`MCP message received for unknown session: ${sessionId}`);
-      res.status(404).send('Session not found');
+      console.error('Error handling MCP request:', err);
+      res.status(500).send(err.message);
     }
   });
 
@@ -140,7 +149,7 @@ async function startApiServer() {
   app.listen(API_PORT, () => {
     console.error(`DarkNotes app running at http://localhost:${API_PORT}`);
     console.error(`REST API: http://localhost:${API_PORT}/api`);
-    console.error(`MCP SSE: http://localhost:${API_PORT}/mcp/sse`);
+    console.error(`MCP HTTP: http://localhost:${API_PORT}/mcp`);
     console.error(`Health check: http://localhost:${API_PORT}/health`);
   });
 }
@@ -161,7 +170,7 @@ if (mode === 'mcp') {
 } else if (mode === 'api') {
   startApiServer();
 } else {
-  // --both: run API/SSE server + separate Stdio server
+  // --both: run API/HTTP server + separate Stdio server
   startApiServer();
   startMcpStdioServer();
 }

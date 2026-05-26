@@ -6,13 +6,13 @@ Connecting the DarkNotes note-taking application to MCP-compatible AI clients (l
 
 DarkNotes is a visual note-taking application. This repository contains the backend server which acts as both an **MCP (Model Context Protocol) server** and a **REST API server**.
 
-- **MCP Server:** Allows AI clients to interact with your notes. Supports both **Stdio** (local) and **SSE (HTTP)** transport.
+- **MCP Server:** Allows AI clients to interact with your notes. Supports both **Stdio** (local) and **Streamable HTTP** transport.
 - **REST API:** Used by the DarkNotes browser application to persist data locally.
 - **Data Persistence:** All data is stored in a human-readable JSON file at `~/.darknotes/data.json`.
 
 ### Main Technologies
 - **Runtime:** Node.js (ES Modules)
-- **Framework:** Express (REST API + MCP SSE)
+- **Framework:** Express (REST API + MCP HTTP)
 - **MCP:** `@modelcontextprotocol/sdk`
 - **Storage:** Local filesystem (JSON)
 
@@ -52,7 +52,7 @@ The server supports different modes via command-line flags:
 
 ### MCP Transport Options
 - **Stdio:** Default when running `node server.js`. Best for local IDE integrations.
-- **SSE (HTTP):** Enabled in `--api` or `--both` modes. Accessible at `http://localhost:3737/mcp/sse`. Best for Docker or remote clients.
+- **Streamable HTTP:** Enabled in `--api` or `--both` modes. Accessible at `http://localhost:3737/mcp`. Best for Docker or remote clients.
 
 ### Running with Docker
 

@@ -44,10 +44,10 @@ Open `notes-app.html` in your browser. The green dot in the toolbar confirms the
 #### Option A: Stdio (Node executable)
 This is the default for Claude Desktop. Use `node server.js` in your config.
 
-#### Option B: HTTP (SSE)
+#### Option B: Streamable HTTP
 You can connect to a running DarkNotes server via HTTP. This is useful for Docker or remote setups.
 1. Start the server with `node server.js --api` or `--both`.
-2. Connect your client to `http://localhost:3737/mcp/sse`.
+2. Connect your client to `http://localhost:3737/mcp`.
 
 ---
 
