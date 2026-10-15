@@ -6,7 +6,6 @@
 
 - The repo is a TypeScript npm-workspaces monorepo: `packages/core` (types, store, service layer, schemas), `apps/server` (REST + MCP adapters), `apps/web` (Next.js + Tailwind).
 - **Put behaviour changes in `packages/core/src/service.ts`.** REST (`apps/server/src/rest.ts`) and MCP tools (`apps/server/src/tools.ts`) stay thin adapters over it.
-- **Do not edit the legacy files** `server.js`, `api.js`, `tools.js`, `store.js`, `darknotes-app.html`, `notes-app.html`. They are being replaced and will be deleted.
 - All data access goes through `readData()` / `writeData()` in `packages/core/src/store.ts`. New ids use the workspace counters (`nextNoteId` and so on) with the prefixes `n_`, `g_`, `c_`, `ws_`.
 - MCP tool names and result shapes are a public contract: extend them, do not change them. Data-file changes must stay compatible with existing `data.json` files.
 - In `apps/web`, import core types from `@darknotes/core/types`, never from `@darknotes/core`.
@@ -17,10 +16,12 @@
 ```bash
 npm install
 npm run dev:all       # API server (:3737) + Next.js app (:3000)
+npm run build         # production build
+npm start             # production: web app, API and MCP on :3737
 npm run serve         # API server only
 npm run mcp           # MCP over stdio
 npm run typecheck
-npm run test:all      # legacy + core + server + web tests (needs Node 22+)
+npm test              # core + server + web tests (needs Node 22+)
 ```
 
-Before reporting work done, run `npm run typecheck && npm run test:all`. Tests must use a temporary `DARKNOTES_DATA_DIR`, never `~/.darknotes`.
+Before reporting work done, run `npm run typecheck && npm test`. Tests must use a temporary `DARKNOTES_DATA_DIR`, never `~/.darknotes`.

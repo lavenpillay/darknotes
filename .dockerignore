@@ -7,6 +7,5 @@ node_modules
 **/.next
 apps/web/out
 apps/server/dist
-tests
 *.md
 !README.md

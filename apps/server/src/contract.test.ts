@@ -1,5 +1,5 @@
-// Contract tests: the legacy characterisation suite (tests/characterization.test.mjs) ported to the new
-// adapters. Anything marked FIX is an intentional change from the legacy behaviour.
+// Contract tests for the REST and MCP adapters. Cases marked FIX record behaviour that was deliberately changed
+// from the original JavaScript server (validation, reference checks, id safety); the rest pins what must not change.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -29,7 +29,7 @@ const tool = (name: string, args: Record<string, unknown> = {}) => handleTool(na
 
 // ── MCP tools ────────────────────────────────────────────────
 
-test('tools: 22 unique tools (same names as legacy)', () => {
+test('tools: 22 unique tools (names are a public contract)', () => {
   assert.equal(TOOLS.length, 22);
   assert.equal(new Set(TOOLS.map((t) => t.name)).size, 22);
 });

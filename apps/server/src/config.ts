@@ -12,8 +12,6 @@ export interface ServerConfig {
   allowedOrigins: Set<string>;
   /** Directory holding the built web app (the static export of apps/web). Served at `/` when it exists. */
   webDir: string;
-  /** The original single-file app, served only when the web app has not been built. Removed in the cleanup. */
-  legacyUiDir: string;
 }
 
 const list = (v: string | undefined) =>
@@ -31,6 +29,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     allowedOrigins: new Set(list(env.DARKNOTES_ALLOWED_ORIGINS)),
     // Same relative path from src/ and from the bundled dist/: <repo>/apps/server/{src,dist} -> <repo>/apps/web/out
     webDir: env.DARKNOTES_WEB_DIR || path.resolve(import.meta.dirname, '../../web/out'),
-    legacyUiDir: env.DARKNOTES_LEGACY_UI_DIR || path.resolve(import.meta.dirname, '../../..'),
   };
 }

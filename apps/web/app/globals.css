@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Palette + fonts carried over from darknotes-app.html :root (lines 19-28). */
+/* Palette and fonts of the original DarkNotes design. */
 @theme {
   --color-bg: #f5f0e8;
   --color-surface: #faf7f2;
@@ -19,7 +19,7 @@ body {
   @apply bg-bg font-sans text-ink;
 }
 
-/* Board grid, same look as the legacy #canvas::before */
+/* Board grid */
 .board-grid {
   background-image:
     linear-gradient(rgba(160, 148, 132, 0.15) 1px, transparent 1px),
@@ -27,7 +27,7 @@ body {
   background-size: 32px 32px;
 }
 
-/* Connection lines (legacy .conn-line) */
+/* Connection lines */
 .conn-line {
   fill: none;
   stroke: #b09878;

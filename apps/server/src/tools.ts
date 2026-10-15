@@ -1,5 +1,5 @@
 /**
- * MCP tools: schemas and handlers. Tool names, arguments and result shapes match the legacy tools.js;
+ * MCP tools: schemas and handlers. Tool names, arguments and result shapes are a public contract (extend, never change);
  * create_note / update_note / create_group additionally accept position, size and font options.
  */
 

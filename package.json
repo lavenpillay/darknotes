@@ -3,26 +3,18 @@
   "version": "1.0.0",
   "description": "MCP server + local REST API for the DarkNotes application",
   "type": "module",
-  "main": "server.js",
   "scripts": {
     "start": "node apps/server/dist/index.js --api",
     "dev": "npm run dev:all",
-    "test": "node --test tests/characterization.test.mjs",
+    "test": "npm test -w @darknotes/core -w @darknotes/server -w @darknotes/web",
     "dev:server": "npm run dev -w @darknotes/server",
     "dev:web": "npm run dev -w @darknotes/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test:all": "npm test && npm test -w @darknotes/core -w @darknotes/server -w @darknotes/web",
     "mcp": "node --import tsx apps/server/src/index.ts",
     "serve": "node --import tsx apps/server/src/index.ts --api",
     "serve:mcp-http": "node --import tsx apps/server/src/index.ts --both",
     "dev:all": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
     "build": "npm run build -w @darknotes/web && npm run build -w @darknotes/server"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "uuid": "^9.0.0"
   },
   "private": true,
   "workspaces": [

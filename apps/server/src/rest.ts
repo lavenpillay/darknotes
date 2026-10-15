@@ -1,4 +1,4 @@
-/** REST adapter over @darknotes/core. Paths, payloads and status codes match the legacy api.js. */
+/** REST adapter over @darknotes/core. Paths, payloads and status codes are a public contract. */
 
 import express, { type Request, type Response, Router } from 'express';
 import {
@@ -86,7 +86,7 @@ export function createApiRouter(): Router {
   router.post('/workspaces/:wsId/activate', h((req, res) => {
     res.json(activateWorkspace(p(req, 'wsId')));
   }));
-  // Whole-board replace. Kept for the legacy UI; it can overwrite concurrent edits, so new clients use /changes.
+  // Whole-board replace. Kept for API compatibility; it can overwrite concurrent edits, so use /changes instead.
   router.put('/workspaces/:wsId/board', h((req, res) => {
     saveBoard(p(req, 'wsId'), req.body);
     res.json({ ok: true });

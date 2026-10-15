@@ -14,7 +14,6 @@ export function webAppBuilt(config: ServerConfig): boolean {
 
 /**
  * Serves the web app: the static export of apps/web (pages, /documentation and the hashed assets under /_next).
- * Falls back to the original single-file app when the web app has not been built (removed in the cleanup).
  */
 function mountWebApp(app: Express, config: ServerConfig) {
   if (webAppBuilt(config)) {
@@ -55,12 +54,13 @@ function mountWebApp(app: Express, config: ServerConfig) {
     return;
   }
 
-  const ui = (file: string) => path.join(config.legacyUiDir, file);
-  if (fs.existsSync(ui('darknotes-app.html'))) {
-    app.use('/css', express.static(ui('css')));
-    app.get('/documentation', (_req, res) => res.sendFile(ui('documentation.html')));
-    app.get('/', (_req, res) => res.sendFile(ui('darknotes-app.html')));
-  }
+  // Not built yet (a fresh checkout, or `npm run serve` in development): say so instead of a bare 404.
+  app.get('/', (_req, res) => {
+    res
+      .status(404)
+      .type('text/plain')
+      .send('The web app has not been built.\nRun `npm run build`, or use `npm run dev:all` and open http://localhost:3000.\n');
+  });
 }
 
 export function createApp(config: ServerConfig): { app: Express; close: () => void } {

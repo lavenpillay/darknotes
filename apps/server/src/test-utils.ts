@@ -19,7 +19,7 @@ export function useTempDataDir() {
 }
 
 export async function startTestServer(overrides: Partial<ServerConfig> = {}) {
-  const config = { ...loadConfig({}), legacyUiDir: os.tmpdir() + '/none', port: 0, ...overrides };
+  const config = { ...loadConfig({}), webDir: path.join(os.tmpdir(), 'dn-no-web-app'), port: 0, ...overrides };
   const { app, close } = createApp(config);
   const server = await new Promise<import('node:http').Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));

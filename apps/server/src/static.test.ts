@@ -1,4 +1,4 @@
-// Serving the built web app: pages, docs, hashed assets, the 404 page, and the fallback to the original app.
+// Serving the built web app: pages, docs, hashed assets, the 404 page, and the hint shown before it is built.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,7 +10,6 @@ import { startTestServer, useTempDataDir } from './test-utils';
 const tmp = useTempDataDir();
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-static-'));
 const web = path.join(root, 'out');
-const legacy = path.join(root, 'legacy');
 const write = (file: string, text: string) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
@@ -21,20 +20,15 @@ write(path.join(web, '404.html'), '<html>NOT FOUND PAGE</html>');
 // Next's export also writes a same-named folder next to each page (its data files). Mirror that: it broke /documentation.
 write(path.join(web, 'documentation', '__next.documentation.txt'), 'data');
 write(path.join(web, '_next', 'static', 'chunks', 'app-abc123.js'), 'console.log("chunk")');
-write(path.join(legacy, 'darknotes-app.html'), '<html>ORIGINAL APP</html>');
-write(path.join(legacy, 'documentation.html'), '<html>ORIGINAL DOCS</html>');
 
 let built: Awaited<ReturnType<typeof startTestServer>>;
-let fallback: Awaited<ReturnType<typeof startTestServer>>;
 let nothing: Awaited<ReturnType<typeof startTestServer>>;
 before(async () => {
-  built = await startTestServer({ webDir: web, legacyUiDir: legacy });
-  fallback = await startTestServer({ webDir: path.join(root, 'missing'), legacyUiDir: legacy });
-  nothing = await startTestServer({ webDir: path.join(root, 'missing'), legacyUiDir: path.join(root, 'missing-too') });
+  built = await startTestServer({ webDir: web });
+  nothing = await startTestServer({ webDir: path.join(root, 'not-built') });
 });
 after(() => {
   built.stop();
-  fallback.stop();
   nothing.stop();
   tmp.cleanup();
   fs.rmSync(root, { recursive: true, force: true });
@@ -103,9 +97,13 @@ test('the web app is behind the same Host guard as the API (DNS rebinding)', asy
   assert.equal(status, 403);
 });
 
-test('without a build, the original app is served as a fallback; without that, / is a plain 404', async () => {
-  assert.equal((await get(fallback, '/')).text, '<html>ORIGINAL APP</html>');
-  assert.equal((await get(fallback, '/documentation')).text, '<html>ORIGINAL DOCS</html>');
-  assert.equal((await get(nothing, '/')).status, 404);
+test('before the web app is built, / explains what to do, and the API still works', async () => {
+  const r = await get(nothing, '/');
+  assert.equal(r.status, 404);
+  assert.match(r.type ?? '', /text\/plain/);
+  assert.match(r.text, /has not been built/);
+  assert.match(r.text, /npm run build/);
+  assert.match(r.text, /npm run dev:all/);
   assert.equal((await get(nothing, '/health')).status, 200);
+  assert.equal((await get(nothing, '/documentation')).status, 404);
 });

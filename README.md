@@ -2,8 +2,6 @@
 
 A visual note board with a local REST API and an MCP server, so Claude and other MCP-compatible AI clients can read and write your notes.
 
-> **Migration nearly done.** DarkNotes has moved to a TypeScript monorepo with a Next.js + Tailwind web app. The server serves the built web app, the REST API and MCP from one port (3737). The original single-file app and its old backend files are still in the repository (and the server falls back to the original app only if the web app has not been built); they are removed in the next change.
-
 ## What this does
 
 - **REST API** (`/api`, port 3737) — the browser app saves notes here instead of only in localStorage.
@@ -17,10 +15,8 @@ All data is stored in `~/.darknotes/data.json`.
 | Path | What it is |
 |---|---|
 | `packages/core` | Shared TypeScript: data types, the file store, the service layer (all note/group/connection rules), Zod schemas |
-| `apps/server` | REST + MCP adapters over `core`; security guards; serves the legacy UI |
+| `apps/server` | REST + MCP adapters over `core`; security guards; serves the built web app |
 | `apps/web` | Next.js + Tailwind app: board, notes, groups, connections, Style panel, minimap, import/export, workspaces, and the documentation page (`/documentation`; content in `components/docs/`) |
-| `darknotes-app.html`, `documentation.html`, `css/` | Legacy UI and docs page, served by the server until the cleanup removes them (the docs now live in `apps/web`) |
-| `server.js`, `api.js`, `tools.js`, `store.js` | Legacy backend (superseded, kept for the characterisation tests) |
 
 ---
 
@@ -70,7 +66,7 @@ Set these as environment variables.
 
 - The server binds to `127.0.0.1` by default, so only your machine can reach it.
 - Requests whose `Host` header is not `localhost`, `127.0.0.1` or `[::1]` get a 403, which blocks DNS-rebinding attacks. Requests carrying a foreign browser `Origin` also get a 403. MCP clients and `curl` send no `Origin` and are unaffected.
-- If you expose the port beyond your machine (a LAN, a reverse proxy, Docker without a loopback-only mapping), **set `DARKNOTES_TOKEN`** and add the hostname to `DARKNOTES_ALLOWED_HOSTS`. The legacy browser UI cannot send a token, so a token-protected server is for MCP and API clients.
+- If you expose the port beyond your machine (a LAN, a reverse proxy, Docker without a loopback-only mapping), **set `DARKNOTES_TOKEN`** and add the hostname to `DARKNOTES_ALLOWED_HOSTS`. **The web app does not send a token**, so against a token-protected server it cannot load your notes; a token is for MCP and API clients. Protect browser access some other way (keep the port on loopback, or put an authenticating proxy in front).
 
 ---
 
@@ -175,7 +171,7 @@ Base URL: `http://localhost:3737/api`. Errors are JSON: `{ "error": "message" }`
 | DELETE | `/workspaces/:id` | Delete workspace |
 | POST | `/workspaces/:id/activate` | Make this the current workspace |
 | POST | `/workspaces/:id/changes` | Apply incremental edits (`{ "changes": [...] }`): create/patch/delete notes, groups and connections, set the view. Idempotent and safe alongside other writers; returns the resulting workspace |
-| PUT | `/workspaces/:id/board` | Replace the whole board. **Legacy UI only**: it overwrites anything added elsewhere in the meantime |
+| PUT | `/workspaces/:id/board` | Replace the whole board. Kept for API compatibility: it overwrites anything added elsewhere in the meantime, so prefer `/changes` |
 | GET | `/workspaces/:id/notes` | List notes (`?search=`, `?label=`, `?groupId=`) |
 | POST | `/workspaces/:id/notes` | Create note |
 | GET | `/workspaces/:id/notes/:nid` | Get note |
@@ -262,7 +258,7 @@ Things created in the browser get random ids (`n_k3f9a2x`, `g_…`, `c_…`). Th
 
 - Both sides editing the *same field of the same note* between syncs is last-write-wins. A note's `lines` are replaced as a whole, so two writers editing one note's text at the same moment can overwrite each other. (Claude's `append_to_note` is safe unless you are typing in that same note.)
 - A delete on one side beats an edit on the other.
-- The **original UI** (`darknotes-app.html`, port 3737) still replaces the whole board with `PUT /workspaces/:id/board` and can erase concurrent edits. Use the new UI until it is removed.
+- `PUT /workspaces/:id/board` replaces the whole board and can erase concurrent edits. The web app does not use it; scripts should use `POST /workspaces/:id/changes`.
 
 ### Where it lives
 
@@ -292,9 +288,8 @@ Other clients can use the same endpoint: MCP tools and the per-item REST endpoin
 
 ```bash
 npm run typecheck     # core, server and web
-npm test              # legacy characterisation tests (tests/)
-npm run test:all      # legacy + core + server + web tests
-npm run build -w @darknotes/web
+npm test              # the tests of core, server and web
+npm run build         # production build (server and web app)
 ```
 
 Tests use a temporary data directory (`DARKNOTES_DATA_DIR`) and never touch `~/.darknotes`.

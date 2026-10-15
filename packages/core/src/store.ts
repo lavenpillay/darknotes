@@ -1,7 +1,7 @@
 /**
  * DarkNotes data store: reads and writes <dataDir>/data.json.
  *
- * Differences from the legacy store.js (see tests/characterization.test.mjs):
+ * Behaviour worth knowing (each is covered by store.test.ts):
  *  - writes are atomic (temp file + fsync + rename) and keep a data.json.bak of the previous version
  *  - a corrupt data file is never replaced by defaults: it is copied aside and an error is thrown
  *  - missing/stale id counters are repaired on load so ids can never be reused

@@ -55,9 +55,7 @@ test('/health and the MCP endpoint are documented', () => {
 });
 
 test('every environment variable the server reads is documented', () => {
-  // Deliberately undocumented: only locates the original interface's files, which the cleanup removes.
-  const internal = new Set(['DARKNOTES_LEGACY_UI_DIR']);
-  const vars = unique(['apps/server/src/config.ts', 'packages/core/src/store.ts'].flatMap((f) => [...read(f).matchAll(/DARKNOTES_[A-Z_]+/g)].map((m) => m[0]))).filter((v) => !internal.has(v));
+  const vars = unique(['apps/server/src/config.ts', 'packages/core/src/store.ts'].flatMap((f) => [...read(f).matchAll(/DARKNOTES_[A-Z_]+/g)].map((m) => m[0])));
   assert.ok(vars.length >= 6);
   for (const v of vars) assert.ok(html.includes(`<td class="tool-name">${v}</td>`), `${v} is not documented`);
 });
