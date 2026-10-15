@@ -110,7 +110,6 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
       if (next === ws) return;
       rev++;
       set({ ws: next, save: 'dirty' });
-      cacheWrite(boardKey(next.id), next);
       schedule(saveDelayMs);
     };
 
@@ -182,6 +181,9 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         if (!ws) return Promise.resolve();
 
         const sentRev = rev;
+        // Cache before the network call so edits survive a reload even if the save fails. Doing it here
+        // (not per edit) keeps drags cheap: this runs once per debounce window, on tab hide, and on retry.
+        cacheWrite(boardKey(ws.id), ws);
         set({ save: 'saving' });
         inflight = (async () => {
           try {

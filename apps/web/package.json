@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test lib/board-math.test.ts lib/board-store.test.ts"
+    "test": "tsx --test lib/board-math.test.ts lib/board-store.test.ts lib/note-geometry.test.ts"
   },
   "dependencies": {
     "@darknotes/core": "*",

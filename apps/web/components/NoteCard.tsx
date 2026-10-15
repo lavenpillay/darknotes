@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Line, Note } from '@darknotes/core/types';
+import { bringToFrontZ, dragPosition, resizeSize, type ResizeHandle } from '@/lib/note-geometry';
 import { boardStore } from '@/lib/use-board';
 
 const update = (id: string, patch: Partial<Omit<Note, 'id'>>) => boardStore.getState().updateNote(id, patch);
@@ -143,11 +144,78 @@ function Labels({ note }: { note: Note }) {
   );
 }
 
+type Gesture =
+  | { kind: 'drag'; start: Note; px: number; py: number }
+  | { kind: 'resize'; handle: ResizeHandle; start: Note; px: number; py: number };
+
+/** Drag from anywhere on the note that is not an input/button; resize from the three handles. */
+function useNoteGestures(note: Note) {
+  const gesture = useRef<Gesture | null>(null);
+
+  const begin = (e: React.PointerEvent<HTMLElement>, kind: 'drag' | 'resize', handle?: ResizeHandle) => {
+    if (e.button !== 0) return;
+    const store = boardStore.getState();
+    const z = store.ws && bringToFrontZ(store.ws.notes, note.id);
+    if (z !== null && z !== undefined) store.updateNote(note.id, { zIndex: z });
+    gesture.current =
+      kind === 'drag'
+        ? { kind, start: note, px: e.clientX, py: e.clientY }
+        : { kind, handle: handle!, start: note, px: e.clientX, py: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation(); // do not start a board pan
+  };
+
+  const move = (e: React.PointerEvent<HTMLElement>) => {
+    const g = gesture.current;
+    const ws = boardStore.getState().ws;
+    if (!g || !ws) return;
+    const a = { x: g.px, y: g.py };
+    const b = { x: e.clientX, y: e.clientY };
+    if (g.kind === 'drag') {
+      boardStore.getState().updateNote(note.id, dragPosition(g.start, a, b, ws.boardZoom));
+    } else {
+      boardStore.getState().updateNote(note.id, resizeSize(g.start, g.handle, a, b, ws.boardZoom));
+    }
+  };
+
+  const end = (e: React.PointerEvent<HTMLElement>) => {
+    gesture.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  return {
+    dragProps: {
+      onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+        const t = e.target as HTMLElement;
+        // Typing/clicking inside fields and buttons must not start a drag, but still raises the note.
+        if (t.closest('input, textarea, button')) {
+          const store = boardStore.getState();
+          const z = store.ws && bringToFrontZ(store.ws.notes, note.id);
+          if (z !== null && z !== undefined) store.updateNote(note.id, { zIndex: z });
+          return;
+        }
+        begin(e, 'drag');
+      },
+      onPointerMove: move,
+      onPointerUp: end,
+      onPointerCancel: end,
+    },
+    handleProps: (handle: ResizeHandle) => ({
+      onPointerDown: (e: React.PointerEvent<HTMLElement>) => begin(e, 'resize', handle),
+      onPointerMove: move,
+      onPointerUp: end,
+      onPointerCancel: end,
+    }),
+  };
+}
+
 export const NoteCard = memo(function NoteCard({ note }: { note: Note }) {
+  const { dragProps, handleProps } = useNoteGestures(note);
   return (
     <article
       data-note={note.id}
-      className="group absolute flex flex-col rounded-[14px] shadow-[4px_6px_24px_rgba(26,22,18,0.12),0_1px_3px_rgba(0,0,0,0.08)] transition-shadow hover:shadow-[6px_10px_36px_rgba(26,22,18,0.18),0_2px_6px_rgba(0,0,0,0.1)]"
+      {...dragProps}
+      className="group absolute flex cursor-grab touch-none select-none flex-col active:cursor-grabbing rounded-[14px] shadow-[4px_6px_24px_rgba(26,22,18,0.12),0_1px_3px_rgba(0,0,0,0.08)] transition-shadow hover:shadow-[6px_10px_36px_rgba(26,22,18,0.18),0_2px_6px_rgba(0,0,0,0.1)]"
       style={{
         left: note.x,
         top: note.y,
@@ -183,6 +251,14 @@ export const NoteCard = memo(function NoteCard({ note }: { note: Note }) {
         </div>
         <Labels note={note} />
       </div>
+      <div {...handleProps('e')} aria-hidden className="absolute right-[-4px] top-3 bottom-6 w-2 cursor-ew-resize" />
+      <div {...handleProps('s')} aria-hidden className="absolute bottom-[-4px] left-3 right-6 h-2 cursor-ns-resize" />
+      <div
+        {...handleProps('se')}
+        aria-hidden
+        className="absolute bottom-[-4px] right-[-4px] size-4 cursor-nwse-resize rounded-br-[14px] opacity-0 transition-opacity group-hover:opacity-60"
+        style={{ background: 'linear-gradient(135deg, transparent 50%, currentColor 50%)' }}
+      />
     </article>
   );
 });
