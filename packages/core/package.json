@@ -10,7 +10,7 @@
     "./types": "./src/types.ts"
   },
   "scripts": {
-    "test": "tsx --test src/store.test.ts",
+    "test": "tsx --test src/store.test.ts src/service.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
