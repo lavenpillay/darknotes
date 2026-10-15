@@ -187,6 +187,90 @@ Base URL: `http://localhost:3737/api`. Errors are JSON: `{ "error": "message" }`
 
 ---
 
+## How saving and syncing work
+
+Several writers can change the same board at once: the browser (possibly in more than one tab), Claude over MCP, and scripts using the REST API. The web app is built so that none of them erases the others' work. (The original single-file UI replaced the whole board on every save, which could silently delete notes Claude had just added. The web app does not work that way.)
+
+### Three copies of the board
+
+The web app keeps, per open workspace:
+
+| Copy | What it is |
+|---|---|
+| **local** | What is on screen. Every edit changes this first, so the UI never waits for the network. |
+| **base** | The last server state this tab saw (after the last load, save or poll). |
+| **server** | What is in `data.json` right now, including anything other writers changed. |
+
+### Saving: send what changed, merge what came back
+
+1. An edit changes *local* and starts a 600 ms debounce. The toolbar shows *Unsaved changes*.
+2. When it fires, the app **diffs base against local** into a short list of operations (below). Only changed fields are included: moving a note sends `{ op: "patchNote", id, fields: { x, y } }`, not the whole note.
+3. The list goes to `POST /api/workspaces/:id/changes`. The server applies all of it in **one atomic read-modify-write** (`applyChanges` in `packages/core/src/service.ts`) and replies with the resulting workspace.
+4. The app **merges that reply into local** (rules below) and sets *base* to the reply. Anything you edited while the request was in flight is kept and saved on the next round.
+
+Operations (all idempotent):
+
+| Operation | Effect |
+|---|---|
+| `createNote`, `createGroup`, `createConnection` | Add the item with a client-chosen id. Skipped if that id already exists, so a retried request cannot duplicate it. A connection is skipped if either note is missing. |
+| `patchNote`, `patchGroup`, `patchConnection` | Change only the listed fields. Skipped if the item no longer exists (someone deleted it). An unknown `groupId` becomes "ungrouped". |
+| `deleteNote`, `deleteGroup`, `deleteConnection` | Remove the item. Skipped if already gone. Deleting a note removes its connections; deleting a group ungroups its notes. |
+| `setView` | Pan offset and zoom. |
+
+The app sends them in a safe order (groups, notes, connections, patches, view, deletes) so every reference exists when it is used. A batch that fails validation is rejected whole and nothing is written. Skipped operations are reported in the reply (`skipped`) and are not errors.
+
+### Picking up other writers' changes
+
+While the tab is visible, the app fetches the workspace every **4 seconds** (and when the tab becomes visible or the network returns) and merges it exactly like a save reply. That is how notes Claude adds over MCP appear on their own. A poll response that arrives after a save has finished is discarded as stale, so it cannot roll anything back.
+
+### The merge
+
+The merge compares each note, group and connection, field by field, against *base*:
+
+| Situation | Result |
+|---|---|
+| We did not change it, the server did (Claude edited or appended) | Take the server's value |
+| We changed it, the server did not | Keep ours (it is sent on the next save) |
+| Both changed *different* fields (we moved a note, Claude renamed it) | Keep both |
+| Both changed the *same* field | Ours wins until saved, then the last write wins |
+| Created on the server (by Claude) | Appears here |
+| Created here, not yet saved | Kept |
+| Deleted on the server | Removed here, even if we edited it |
+| Deleted here, not yet saved | Stays deleted |
+| A group or note it points to has gone | Note becomes ungrouped; the connection is dropped |
+
+Unchanged items keep their object identity, so React does not re-render them on every poll.
+
+### Ids
+
+Things created in the browser get random ids (`n_k3f9a2x`, `g_…`, `c_…`). Things created by the server (MCP tools, REST create endpoints) get counter ids (`n_1`, `n_2`, …). The two formats cannot collide, which is what makes offline and concurrent creation safe. Treat ids as opaque strings.
+
+### Failures and offline
+
+- A failed save keeps the edits, shows *Not saved*, and retries every 5 seconds. Switching workspace waits for pending saves first.
+- Saves are also started when the tab is hidden or closed (using `keepalive` requests, which browsers cap at 64 KB), so a pan or edit made just before closing is not lost.
+- The app caches its *local* and *base* copies in the browser. If the server is unreachable at load, it shows the cached board marked *Offline*, and sends the unsaved edits (diffed against the cached base) once the server is back.
+
+### Limits
+
+- Both sides editing the *same field of the same note* between syncs is last-write-wins. A note's `lines` are replaced as a whole, so two writers editing one note's text at the same moment can overwrite each other. (Claude's `append_to_note` is safe unless you are typing in that same note.)
+- A delete on one side beats an edit on the other.
+- The **original UI** (`darknotes-app.html`, port 3737) still replaces the whole board with `PUT /workspaces/:id/board` and can erase concurrent edits. Use the new UI until it is removed.
+
+### Where it lives
+
+| Piece | File |
+|---|---|
+| Operation types and validation | `packages/core/src/types.ts` (`Change`), `schemas.ts` (`changeSchema`) |
+| Applying a batch atomically | `packages/core/src/service.ts` (`applyChanges`) |
+| HTTP endpoint | `apps/server/src/rest.ts` (`POST /workspaces/:wsId/changes`) |
+| Diff and merge (pure functions) | `apps/web/lib/sync.ts` |
+| Save loop, polling, offline cache | `apps/web/lib/board-store.ts` |
+
+Other clients can use the same endpoint: MCP tools and the per-item REST endpoints already change one thing at a time and are safe as they are, and `/changes` is for sending several edits in one atomic request.
+
+---
+
 ## Data file
 
 `~/.darknotes/data.json` is human-readable JSON. You can back it up, version-control it, or move it between machines.
@@ -212,10 +296,8 @@ New behaviour goes into `packages/core/src/service.ts`; the REST routes (`apps/s
 
 ### Web app notes (`apps/web`)
 
-- The server is the source of truth. Edits show instantly and are saved after a short pause (600 ms) as **incremental changes**, only what differs from the last server state the tab saw; the toolbar shows *Saved / Unsaved changes / Saving… / Not saved*. A failed save is retried every 5 seconds and nothing is discarded.
-- **Safe with Claude editing at the same time.** The open tab merges the server's state in every 4 seconds (while visible) and after each save, so notes, groups and connections added or changed over MCP appear, and are never erased by a browser save. Edits to different notes, or different fields of one note (position vs heading), from both sides are both kept. If both sides edit the *same* field of the same note between syncs, the browser's value wins until saved, then the last write wins. A note's lines are replaced as a whole, so concurrent edits to one note's text can overwrite each other. Deleting something on one side beats editing it on the other.
-- Ids for things created in the browser are random (`n_k3f9a2x`), so they can never collide with ids the server hands out (`n_1`, `n_2`, …).
-- If the server is unreachable at load, the app shows the last copy it cached in the browser (marked *Offline*) and syncs it when the server returns.
+- The server is the source of truth. Edits show instantly and are saved after a short pause; the toolbar shows *Saved / Unsaved changes / Saving… / Not saved*.
+- Saving is incremental and merge-safe, so Claude can edit while the tab is open: see [How saving and syncing work](#how-saving-and-syncing-work).
 - Workspace names and the workspace list come from the server, so a workspace created or renamed through MCP appears here (and renames made here reach MCP).
 - Notes: drag anywhere that is not a text field; resize from the corner, right or bottom edge; right-click for Duplicate, Add to / Remove from Group, Delete.
 - Connections: drag from a dot on a note's edge to a dot on another note (it snaps within 30 px); click a line to delete it; right-click a line for arrowheads.
