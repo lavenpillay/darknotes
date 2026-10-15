@@ -1,0 +1,560 @@
+/**
+ * DarkNotes documentation theme, scoped to the `.dn-docs` wrapper so it cannot affect the app.
+ * Ported from the original css/darknotes-docs-theme.css (same tokens, same look). Tailwind's reset removes list
+ * bullets and zeroes margins, so those are restored for lists below.
+ */
+
+
+/* ── Fonts (load in HTML <head> for best performance) ── */
+
+/* ── Design tokens ── */
+.dn-docs {
+  font-family: var(--dn-font-sans);
+  background: var(--dn-bg);
+  color: var(--dn-ink);
+  line-height: 1.7;
+  font-size: 15px;
+  --dn-bg: #f5f0e8;
+  --dn-surface: #faf7f2;
+  --dn-ink: #1a1612;
+  --dn-ink-muted: #7a7268;
+  --dn-accent: #c4522a;
+  --dn-accent-light: #f3e0d8;
+  --dn-border: #e0d8cc;
+  --dn-code-bg: #f0ebe3;
+  --dn-shadow: rgba(26, 22, 18, 0.1);
+  --dn-success: #27ae60;
+  --dn-success-bg: #eafaf1;
+  --dn-sidebar-width: 260px;
+  --dn-content-max: 860px;
+  --dn-font-sans: 'DM Sans', system-ui, sans-serif;
+  --dn-font-serif: 'Playfair Display', Georgia, serif;
+  --dn-font-mono: 'DM Mono', ui-monospace, monospace;
+}
+
+.dn-docs {
+  font-family: var(--dn-font-sans);
+  background: var(--dn-bg);
+  color: var(--dn-ink);
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+.dn-docs {
+  scroll-behavior: smooth;
+}
+
+/* ── Layout ── */
+.dn-docs .dn-page {
+  display: flex;
+  min-height: 100vh;
+}
+
+.dn-docs aside {
+  width: var(--dn-sidebar-width);
+  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--dn-surface);
+  border-right: 1.5px solid var(--dn-border);
+  overflow-y: auto;
+  padding: 32px 0 48px;
+  z-index: 100;
+}
+
+.dn-docs main {
+  margin-left: var(--dn-sidebar-width);
+  max-width: var(--dn-content-max);
+  padding: 60px 56px 100px;
+  flex: 1;
+}
+
+/* ── Sidebar ── */
+.dn-docs .sidebar-logo {
+  font-family: var(--dn-font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  padding: 0 24px 28px;
+  border-bottom: 1.5px solid var(--dn-border);
+  margin-bottom: 16px;
+  display: block;
+  letter-spacing: -0.3px;
+}
+
+.dn-docs .sidebar-logo span {
+  color: var(--dn-accent);
+}
+
+.dn-docs .nav-section {
+  margin-bottom: 6px;
+}
+
+.dn-docs .nav-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dn-ink-muted);
+  padding: 10px 24px 4px;
+  display: block;
+}
+
+.dn-docs .nav-link {
+  display: block;
+  padding: 6px 24px;
+  color: var(--dn-ink-muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 400;
+  transition: color 0.12s, background 0.12s;
+  border-left: 2.5px solid transparent;
+  margin-left: -1px;
+}
+
+.dn-docs .nav-link:hover {
+  color: var(--dn-accent);
+  background: var(--dn-accent-light);
+}
+
+.dn-docs .nav-link.active {
+  color: var(--dn-accent);
+  border-left-color: var(--dn-accent);
+  font-weight: 500;
+}
+
+/* ── Typography ── */
+.dn-docs h1 {
+  font-family: var(--dn-font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--dn-ink);
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+.dn-docs h1 .accent {
+  color: var(--dn-accent);
+}
+
+.dn-docs .subtitle {
+  font-size: 17px;
+  color: var(--dn-ink-muted);
+  margin-bottom: 52px;
+  max-width: 580px;
+  line-height: 1.6;
+}
+
+.dn-docs h2 {
+  font-family: var(--dn-font-serif);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  margin: 60px 0 16px;
+  padding-top: 60px;
+  border-top: 1.5px solid var(--dn-border);
+  scroll-margin-top: 40px;
+}
+
+.dn-docs h2:first-of-type {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.dn-docs h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  margin: 32px 0 10px;
+  scroll-margin-top: 40px;
+}
+
+.dn-docs h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.dn-docs p {
+  margin-bottom: 14px;
+  color: var(--dn-ink);
+  max-width: 680px;
+}
+
+.dn-docs .text-muted {
+  color: var(--dn-ink-muted);
+  font-size: 13px;
+}
+
+.dn-docs .mt-sm {
+  margin-top: 8px;
+}
+
+.dn-docs a {
+  color: var(--dn-accent);
+  text-decoration: none;
+}
+
+.dn-docs a:hover {
+  text-decoration: underline;
+}
+
+.dn-docs ul,
+.dn-docs ol {
+  margin: 10px 0 20px 20px;
+  color: var(--dn-ink);
+  max-width: 680px;
+}
+
+.dn-docs li {
+  margin-bottom: 6px;
+}
+
+.dn-docs li:last-child {
+  margin-bottom: 0;
+}
+
+.dn-docs strong {
+  font-weight: 600;
+}
+
+.dn-docs em {
+  font-style: italic;
+}
+
+/* ── Feature cards ── */
+.dn-docs .feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0 36px;
+}
+
+.dn-docs .feature-card {
+  background: var(--dn-surface);
+  border: 1.5px solid var(--dn-border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dn-docs .feature-card:hover {
+  border-color: var(--dn-accent);
+  box-shadow: 0 4px 16px var(--dn-shadow);
+}
+
+.dn-docs .feature-card h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dn-docs .feature-card h4 .icon {
+  font-size: 18px;
+}
+
+.dn-docs .feature-card p {
+  font-size: 13px;
+  color: var(--dn-ink-muted);
+  margin: 0;
+  max-width: none;
+}
+
+/* ── Tables ── */
+.dn-docs .shortcut-table,
+.dn-docs .tool-table,
+.dn-docs .api-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 32px;
+}
+
+.dn-docs .shortcut-table {
+  margin-bottom: 32px;
+}
+
+.dn-docs .tool-table,
+.dn-docs .api-table {
+  font-size: 13.5px;
+}
+
+.dn-docs .api-table {
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+.dn-docs .shortcut-table th,
+.dn-docs .tool-table th,
+.dn-docs .api-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dn-ink-muted);
+  padding: 8px 14px;
+  border-bottom: 1.5px solid var(--dn-border);
+}
+
+.dn-docs .api-table th {
+  font-size: 10.5px;
+  padding: 8px 12px;
+}
+
+.dn-docs .tool-table th,
+.dn-docs .api-table th {
+  background: var(--dn-surface);
+}
+
+.dn-docs .shortcut-table td,
+.dn-docs .tool-table td,
+.dn-docs .api-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--dn-border);
+  font-size: 13.5px;
+}
+
+.dn-docs .tool-table td,
+.dn-docs .api-table td {
+  padding: 10px 14px;
+  vertical-align: top;
+}
+
+.dn-docs .api-table td {
+  padding: 9px 12px;
+}
+
+.dn-docs .shortcut-table tr:last-child td,
+.dn-docs .tool-table tr:last-child td,
+.dn-docs .api-table tr:last-child td {
+  border-bottom: none;
+}
+
+.dn-docs .shortcut-table tr:hover td,
+.dn-docs .tool-table tr:hover td {
+  background: var(--dn-accent-light);
+}
+
+.dn-docs .tool-name {
+  font-family: var(--dn-font-mono);
+  font-size: 12.5px;
+  color: var(--dn-accent);
+  font-weight: 500;
+}
+
+.dn-docs .tool-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 20px;
+  margin-left: 4px;
+  background: var(--dn-accent-light);
+  color: var(--dn-accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* ── Keyboard & inline code ── */
+.dn-docs kbd {
+  display: inline-block;
+  font-family: var(--dn-font-mono);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--dn-code-bg);
+  border: 1px solid var(--dn-border);
+  color: var(--dn-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.dn-docs pre {
+  background: var(--dn-code-bg);
+  border: 1.5px solid var(--dn-border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  font-family: var(--dn-font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  margin: 14px 0 24px;
+  color: var(--dn-ink);
+  max-width: 680px;
+}
+
+.dn-docs code {
+  font-family: var(--dn-font-mono);
+  font-size: 12.5px;
+  background: var(--dn-code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.dn-docs pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* ── Callouts ── */
+.dn-docs .callout {
+  border-left: 3px solid var(--dn-accent);
+  background: var(--dn-accent-light);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  margin: 20px 0 28px;
+  font-size: 13.5px;
+  max-width: 680px;
+}
+
+.dn-docs .callout strong {
+  color: var(--dn-accent);
+}
+
+.dn-docs .callout.tip {
+  border-color: var(--dn-success);
+  background: var(--dn-success-bg);
+}
+
+.dn-docs .callout.tip strong {
+  color: var(--dn-success);
+}
+
+/* ── HTTP method badges ── */
+.dn-docs .method {
+  font-family: var(--dn-font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.dn-docs .method.get {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.dn-docs .method.post {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dn-docs .method.patch {
+  background: #fff8e1;
+  color: #e65100;
+}
+
+.dn-docs .method.put {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
+.dn-docs .method.delete {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.dn-docs .endpoint {
+  font-family: var(--dn-font-mono);
+  font-size: 12px;
+}
+
+/* ── Numbered steps ── */
+.dn-docs .steps {
+  counter-reset: dn-step;
+  margin: 16px 0 28px;
+}
+
+.dn-docs .step {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: flex-start;
+}
+
+.dn-docs .step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--dn-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dn-docs .step-body h4 {
+  margin-bottom: 4px;
+}
+
+.dn-docs .step-body p {
+  font-size: 13.5px;
+  color: var(--dn-ink-muted);
+  margin: 0;
+}
+
+.dn-docs .step-body pre {
+  margin-top: 8px;
+}
+
+/* ── Utilities ── */
+.dn-docs hr {
+  border: none;
+  border-top: 1.5px solid var(--dn-border);
+  margin: 48px 0;
+}
+
+.dn-docs .status-online {
+  color: var(--dn-success);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .dn-docs aside {
+    display: none;
+  }
+
+  .dn-docs main {
+    margin-left: 0;
+    padding: 32px 24px 60px;
+  }
+
+  .dn-docs .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Tailwind preflight fixes ── */
+.dn-docs ul {
+  list-style: disc;
+}
+.dn-docs ol {
+  list-style: decimal;
+}
+.dn-docs table {
+  border-collapse: collapse;
+}
+.dn-docs .nav-link.active {
+  background: transparent;
+}
+html:has(.dn-docs) {
+  scroll-behavior: smooth;
+}
+.dn-docs .back-link {
+  display: inline-block;
+  margin: 0 24px 16px;
+  font-size: 12.5px;
+}

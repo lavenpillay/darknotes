@@ -2,7 +2,7 @@
 
 A visual note board with a local REST API and an MCP server, so Claude and other MCP-compatible AI clients can read and write your notes.
 
-> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can now do nearly everything the original app did (the only gap is the docs page, which the server still serves from the original files; the original app's *Clear All* button is intentionally not carried over): create, edit, move, resize and delete notes, draw connections, use groups, style notes (colours, text size, heading font), navigate with a minimap, import and export workspaces, pan and zoom, and manage workspaces. The original single-file app is still served by the server at <http://localhost:3737> until the cleanup that removes it. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
+> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can now do everything the original app did except *Clear All*, which is intentionally not carried over, and it has the documentation page too (<http://localhost:3000/documentation>, also linked as *Docs* in its toolbar). The original single-file app and its docs page are still served by the server at <http://localhost:3737> until the cleanup that removes them. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
 
 ## What this does
 
@@ -18,8 +18,8 @@ All data is stored in `~/.darknotes/data.json`.
 |---|---|
 | `packages/core` | Shared TypeScript: data types, the file store, the service layer (all note/group/connection rules), Zod schemas |
 | `apps/server` | REST + MCP adapters over `core`; security guards; serves the legacy UI |
-| `apps/web` | Next.js + Tailwind app: typed API client, board store with debounced saves, pan/zoom, note editing, workspaces (in progress) |
-| `darknotes-app.html`, `documentation.html`, `css/` | Legacy UI, served by the server until the Next.js app replaces it |
+| `apps/web` | Next.js + Tailwind app: board, notes, groups, connections, Style panel, minimap, import/export, workspaces, and the documentation page (`/documentation`; content in `components/docs/`) |
+| `darknotes-app.html`, `documentation.html`, `css/` | Legacy UI and docs page, served by the server until the cleanup removes them (the docs now live in `apps/web`) |
 | `server.js`, `api.js`, `tools.js`, `store.js` | Legacy backend (superseded, kept for the characterisation tests) |
 
 ---

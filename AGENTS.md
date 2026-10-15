@@ -15,7 +15,7 @@ The repo is an **npm-workspaces monorepo in TypeScript**, mid-migration from a p
 | `packages/core` | **Single owner of all data rules.** Types (`types.ts`), file store (`store.ts`), service layer (`service.ts`), Zod schemas (`schemas.ts`), domain errors (`errors.ts`) |
 | `apps/server` | Thin adapters over `core`: REST (`rest.ts`), MCP tools (`tools.ts`), MCP sessions (`mcp.ts`), HTTP app and security (`app.ts`, `security.ts`, `config.ts`), entry point (`index.ts`) |
 | `apps/web` | Next.js (App Router) + Tailwind frontend. `lib/` holds pure logic and the board store; `components/` holds React UI |
-| `darknotes-app.html`, `documentation.html`, `css/` | **Legacy UI**, still served by the server until the Next.js app reaches parity. Behaviour reference only |
+| `darknotes-app.html`, `documentation.html`, `css/` | **Legacy UI and docs page**, still served by the server until the cleanup removes them. Behaviour reference only; do not edit `documentation.html` (the docs live in `apps/web/components/docs/`) |
 | `server.js`, `api.js`, `tools.js`, `store.js` | **Legacy backend. Superseded; do not add features here.** Kept only so `tests/characterization.test.mjs` can pin old behaviour; they are deleted at cutover |
 | `notes-app.html` | Obsolete older UI fork. Ignore |
 
@@ -70,9 +70,9 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
 ## 7. Documentation upkeep
 
 - `README.md`: update as each change lands (commands, options, tool and REST tables).
-- `documentation.html`: the user-facing docs page. Update periodically in batches, not on every change.
+- The user-facing documentation is a page of the web app at `/documentation` (`apps/web/components/docs/sections/*.tsx`, styled by `app/documentation/docs.css`, table of contents in `components/docs/nav.ts`). Update it periodically in batches, not on every change. `components/docs/docs.test.tsx` fails if the page drifts from the code: every MCP tool, REST route and `DARKNOTES_*` variable must be documented, every `npm run` shown must exist, and every in-page link must resolve. New sections need an `id` on their `<h2>` and an entry in `nav.ts`.
 - Keep this file and `GEMINI.md` accurate when the layout, commands or rules change.
 
 ## 8. Migration status
 
-Done: `packages/core` (store, service layer, export/import), `apps/server` (REST + MCP + security), the web app (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu, Style panel, minimap, import/export). Still to do: port the docs page, then cutover (delete the legacy backend and HTML apps, update the Dockerfile). Deliberately not ported: migrating boards stored by the original app's `localStorage`, and the original app's *Clear All* button (the user does not need either).
+Done: `packages/core` (store, service layer, export/import), `apps/server` (REST + MCP + security), the web app (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu, Style panel, minimap, import/export, documentation page). Still to do: the cutover (delete the legacy backend `server.js`/`api.js`/`tools.js`/`store.js`, `darknotes-app.html`, `notes-app.html`, `documentation.html`, `css/` and `tests/characterization.test.mjs`; make the server stop serving them; decide how the Next.js app is served in production and update the Dockerfile and README accordingly). Deliberately not ported: migrating boards stored by the original app's `localStorage`, and the original app's *Clear All* button (the user does not need either).
