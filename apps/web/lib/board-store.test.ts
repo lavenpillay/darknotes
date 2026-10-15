@@ -280,3 +280,54 @@ test('connections: add (with dedupe and validation), arrows, delete', async () =
   store.getState().deleteConnection('c_1');
   assert.deepEqual(Object.keys(store.getState().ws!.connections), []);
 });
+
+test('groups: add, update, move with notes, ungroup on delete', async () => {
+  const f = fakeApi();
+  const store = createBoardStore({ api: f.api });
+  await store.getState().init();
+
+  const g = store.getState().addGroup({ x: 100, y: 100, w: 460, h: 320 })!;
+  assert.equal(g, 'g_1');
+  assert.equal(store.getState().ws!.nextGroupId, 2);
+  assert.equal(store.getState().addGroup()!, 'g_2');
+
+  store.getState().updateGroup(g, { name: 'Ideas', minimized: true });
+  assert.deepEqual([store.getState().ws!.groups.g_1!.name, store.getState().ws!.groups.g_1!.minimized], ['Ideas', true]);
+
+  const inside = store.getState().addNote({ x: 120, y: 120, w: 200, h: 100 })!;
+  const outside = store.getState().addNote({ x: 900, y: 900 })!;
+  store.getState().setNoteGroup(inside, g);
+  assert.deepEqual([store.getState().ws!.notes[inside]!.x, store.getState().ws!.notes[inside]!.groupId], [120, g]); // already inside: not moved
+  store.getState().setNoteGroup(outside, g);
+  assert.deepEqual(
+    [store.getState().ws!.notes[outside]!.x, store.getState().ws!.notes[outside]!.y],
+    [140, 140], // moved to the padded top-left
+  );
+
+  store.getState().moveGroup(g, { x: 300, y: 250 }, { [inside]: { dx: 20, dy: 20 }, ghost: { dx: 0, dy: 0 } });
+  assert.deepEqual([store.getState().ws!.groups.g_1!.x, store.getState().ws!.groups.g_1!.y], [300, 250]);
+  assert.deepEqual([store.getState().ws!.notes[inside]!.x, store.getState().ws!.notes[inside]!.y], [320, 270]);
+
+  store.getState().setNoteGroup(inside, null);
+  assert.equal(store.getState().ws!.notes[inside]!.groupId, null);
+  store.getState().setNoteGroup(inside, 'g_404'); // unknown group: ignored
+  assert.equal(store.getState().ws!.notes[inside]!.groupId, null);
+
+  store.getState().deleteGroup(g);
+  assert.deepEqual(Object.keys(store.getState().ws!.groups), ['g_2']);
+  assert.equal(store.getState().ws!.notes[outside]!.groupId, null); // ungrouped, not deleted
+  assert.ok(store.getState().ws!.notes[outside]);
+});
+
+test('duplicateNote copies content 30px away, ungrouped, with a fresh id', async () => {
+  const f = fakeApi();
+  const store = createBoardStore({ api: f.api });
+  await store.getState().init();
+  const id = store.getState().addNote({ heading: 'Plan', x: 100, y: 100, labels: ['a'], lines: [{ type: 'check', text: 'x', checked: true }], groupId: 'g_1' })!;
+  const copy = store.getState().duplicateNote(id)!;
+  const n = store.getState().ws!.notes[copy]!;
+  assert.notEqual(copy, id);
+  assert.deepEqual([n.heading, n.x, n.y, n.groupId, n.labels], ['Plan (copy)', 130, 130, null, ['a']]);
+  assert.notEqual(n.lines, store.getState().ws!.notes[id]!.lines); // deep copy
+  assert.equal(store.getState().duplicateNote('n_404'), null);
+});

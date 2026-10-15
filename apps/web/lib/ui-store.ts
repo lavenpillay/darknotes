@@ -10,6 +10,7 @@ interface UiState {
   cursor: Point | null; // board coordinates
   snap: Snap | null;
   menu: { connId: string; x: number; y: number } | null; // viewport coordinates
+  noteMenu: { noteId: string; x: number; y: number } | null;
 }
 
-export const useUi = create<UiState>()(() => ({ connecting: null, cursor: null, snap: null, menu: null }));
+export const useUi = create<UiState>()(() => ({ connecting: null, cursor: null, snap: null, menu: null, noteMenu: null }));

@@ -73,4 +73,4 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
 
 ## 8. Migration status
 
-Done: `packages/core` (store, service layer), `apps/server` (REST + MCP + security), web foundation (API client, board store, pan/zoom, note editing, drag/resize, workspaces). In progress: connections, groups, colour/font panels. Still to do: minimap, import/export, localStorage migration from the legacy app, docs page port, then cutover (delete the legacy backend and HTML apps, update the Dockerfile).
+Done: `packages/core` (store, service layer), `apps/server` (REST + MCP + security), web foundation (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu). In progress: note colour and font panels. Still to do: minimap, import/export, localStorage migration from the legacy app, docs page port, then cutover (delete the legacy backend and HTML apps, update the Dockerfile).

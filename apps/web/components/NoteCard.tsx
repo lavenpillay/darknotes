@@ -251,6 +251,10 @@ export const NoteCard = memo(function NoteCard({ note }: { note: Note }) {
     <article
       data-note={note.id}
       {...dragProps}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        useUi.setState({ noteMenu: { noteId: note.id, x: e.clientX, y: e.clientY }, menu: null });
+      }}
       className="group absolute flex cursor-grab touch-none select-none flex-col active:cursor-grabbing rounded-[14px] shadow-[4px_6px_24px_rgba(26,22,18,0.12),0_1px_3px_rgba(0,0,0,0.08)] transition-shadow hover:shadow-[6px_10px_36px_rgba(26,22,18,0.18),0_2px_6px_rgba(0,0,0,0.1)]"
       style={{
         left: note.x,

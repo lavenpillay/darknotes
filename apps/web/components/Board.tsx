@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { BOARD_H, BOARD_W, roundZoom, screenToBoard, wheelZoomFactor, zoomAround } from '@/lib/board-math';
 import { boardStore, useBoard } from '@/lib/use-board';
+import { hiddenNoteIds } from '@/lib/group-geometry';
 import { ConnectionLayer } from './ConnectionLayer';
+import { GroupBox } from './GroupBox';
 import { NoteCard } from './NoteCard';
 
 let viewportEl: HTMLDivElement | null = null;
@@ -27,6 +29,8 @@ const typing = (t: EventTarget | null) =>
 export function Board() {
   const ref = useRef<HTMLDivElement>(null);
   const notes = useBoard((s) => s.ws?.notes);
+  const groups = useBoard((s) => s.ws?.groups);
+  const hidden = useMemo(() => hiddenNoteIds(notes ?? {}, groups ?? {}), [notes, groups]);
   const offsetX = useBoard((s) => s.ws?.boardOffsetX ?? 0);
   const offsetY = useBoard((s) => s.ws?.boardOffsetY ?? 0);
   const zoom = useBoard((s) => s.ws?.boardZoom ?? 1);
@@ -127,8 +131,9 @@ export function Board() {
           transform: `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`,
         }}
       >
+        {groups && Object.values(groups).map((g) => <GroupBox key={g.id} group={g} />)}
         <ConnectionLayer />
-        {notes && Object.values(notes).map((note) => <NoteCard key={note.id} note={note} />)}
+        {notes && Object.values(notes).filter((n) => !hidden.has(n.id)).map((note) => <NoteCard key={note.id} note={note} />)}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { clampZoom, roundZoom, ZOOM_STEP } from '@/lib/board-math';
 import { boardStore, useBoard } from '@/lib/use-board';
 import { Board } from './Board';
 import { ConnectionMenu } from './ConnectionMenu';
+import { NoteContextMenu } from './NoteContextMenu';
 import { Toolbar } from './Toolbar';
 
 const typing = (t: EventTarget | null) =>
@@ -92,6 +93,7 @@ export function BoardApp() {
         <Board />
       )}
       <ConnectionMenu />
+      <NoteContextMenu />
       {notice && (
         <div
           role="status"

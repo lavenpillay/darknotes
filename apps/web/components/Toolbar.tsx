@@ -182,6 +182,14 @@ export function Toolbar() {
     boardStore.getState().addNote({ x: Math.round(c.x - 150), y: Math.round(c.y - 110) });
   };
 
+  const newGroup = () => {
+    const { ws } = boardStore.getState();
+    if (!ws) return;
+    const { w, h } = viewportSize();
+    const c = visibleCenter({ offsetX: ws.boardOffsetX, offsetY: ws.boardOffsetY, zoom: ws.boardZoom }, w, h);
+    boardStore.getState().addGroup({ x: Math.round(c.x - 230), y: Math.round(c.y - 160) });
+  };
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
       <span className="font-display text-xl font-bold">
@@ -202,6 +210,9 @@ export function Toolbar() {
         </button>
         <button className={btn} aria-label="Zoom in" disabled={!hasWs || zoom >= MAX_ZOOM} onClick={() => setZoom(zoom + ZOOM_STEP)}>
           +
+        </button>
+        <button className={`${btn} px-3`} disabled={!hasWs} onClick={newGroup}>
+          + New Group
         </button>
         <button
           className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"

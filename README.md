@@ -2,7 +2,7 @@
 
 A visual note board with a local REST API and an MCP server, so Claude and other MCP-compatible AI clients can read and write your notes.
 
-> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can already create, edit and delete notes, pan and zoom, and manage workspaces, but it does not yet have drag/resize, groups, connections, the colour picker, the minimap or import/export. Until it does, the full UI is still the original single-file app, served by the server at <http://localhost:3737>. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
+> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can already create, edit, move, resize and delete notes, draw connections, use groups, pan and zoom, and manage workspaces, but it does not yet have the note colour and font panels, the minimap or import/export. Until it does, the full UI is still the original single-file app, served by the server at <http://localhost:3737>. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
 
 ## What this does
 
@@ -214,4 +214,7 @@ New behaviour goes into `packages/core/src/service.ts`; the REST routes (`apps/s
 - The server is the source of truth. Edits show instantly and are saved to the server after a short pause (600 ms); the toolbar shows *Saved / Unsaved changes / Saving… / Not saved*. A failed save is retried every 5 seconds and nothing is discarded.
 - If the server is unreachable at load, the app shows the last copy it cached in the browser (marked *Offline*) and syncs it when the server returns.
 - Workspace names and the workspace list come from the server, so a workspace created or renamed through MCP appears here (and renames made here reach MCP). Switching back to the tab refreshes the board from the server when there are no unsaved changes.
+- Notes: drag anywhere that is not a text field; resize from the corner, right or bottom edge; right-click for Duplicate, Add to / Remove from Group, Delete.
+- Connections: drag from a dot on a note's edge to a dot on another note (it snaps within 30 px); click a line to delete it; right-click a line for arrowheads.
+- Groups: **+ New Group** adds one; drag its header (notes inside move with it), resize from the corner, rename, recolour, minimize to a pill (hides its notes and their connections) or delete (notes are kept).
 - Controls so far: Ctrl/Cmd + scroll or Ctrl/Cmd + `+` / `-` / `0` to zoom, scroll or Space/middle-drag or dragging empty board to pan; in a note, Enter adds a line, Shift+Enter breaks a line, Tab toggles a checkbox, Backspace on an empty line removes it.

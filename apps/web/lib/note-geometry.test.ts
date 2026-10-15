@@ -52,3 +52,7 @@ test('bringToFrontZ: raises a covered note, leaves a top note alone', () => {
   // equal z-index counts as covered
   assert.equal(bringToFrontZ({ a: { id: 'a', zIndex: 10 }, b: { id: 'b', zIndex: 10 } }, 'a'), 11);
 });
+
+test('resizeSize accepts a custom minimum (groups use 200x120)', () => {
+  assert.deepEqual(resizeSize(note, 'se', { x: 0, y: 0 }, { x: -999, y: -999 }, 1, { w: 200, h: 120 }), { w: 200, h: 120 });
+});

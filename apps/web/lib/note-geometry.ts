@@ -39,11 +39,12 @@ export function resizeSize(
   pointerStart: Point,
   pointer: Point,
   zoom: number,
+  min: { w: number; h: number } = { w: MIN_NOTE_W, h: MIN_NOTE_H },
 ): { w: number; h: number } {
   const dx = (pointer.x - pointerStart.x) / zoom;
   const dy = (pointer.y - pointerStart.y) / zoom;
-  const w = handle === 's' ? start.w : round(clamp(start.w + dx, MIN_NOTE_W, BOARD_W - start.x));
-  const h = handle === 'e' ? start.h : round(clamp(start.h + dy, MIN_NOTE_H, BOARD_H - start.y));
+  const w = handle === 's' ? start.w : round(clamp(start.w + dx, min.w, BOARD_W - start.x));
+  const h = handle === 'e' ? start.h : round(clamp(start.h + dy, min.h, BOARD_H - start.y));
   return { w, h };
 }
 

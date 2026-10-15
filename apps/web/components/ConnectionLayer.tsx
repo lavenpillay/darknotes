@@ -1,9 +1,10 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { Connection } from '@darknotes/core/types';
 import { BOARD_H, BOARD_W } from '@/lib/board-math';
 import { bezierPath, connPointPos, guessSide } from '@/lib/connection-geometry';
+import { hiddenNoteIds } from '@/lib/group-geometry';
 import { useUi } from '@/lib/ui-store';
 import { boardStore, useBoard } from '@/lib/use-board';
 
@@ -35,6 +36,8 @@ const ConnectionPath = memo(function ConnectionPath({ d, conn }: { d: string; co
 export function ConnectionLayer() {
   const notes = useBoard((s) => s.ws?.notes);
   const connections = useBoard((s) => s.ws?.connections);
+  const groups = useBoard((s) => s.ws?.groups);
+  const hidden = useMemo(() => hiddenNoteIds(notes ?? {}, groups ?? {}), [notes, groups]);
   const connecting = useUi((s) => s.connecting);
   const cursor = useUi((s) => s.cursor);
   const snap = useUi((s) => s.snap);
@@ -70,6 +73,7 @@ export function ConnectionLayer() {
           const a = notes[c.fromNote];
           const b = notes[c.toNote];
           if (!a || !b) return null; // dangling connection: nothing to draw
+          if (hidden.has(c.fromNote) || hidden.has(c.toNote)) return null; // inside a minimized group
           return <ConnectionPath key={c.id} conn={c} d={bezierPath(connPointPos(a, c.fromSide), c.fromSide, connPointPos(b, c.toSide), c.toSide)} />;
         })}
       {preview && <path d={preview} className="conn-line preview" />}

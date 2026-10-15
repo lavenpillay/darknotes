@@ -4,8 +4,9 @@
  */
 
 import { createStore } from 'zustand/vanilla';
-import type { Arrows, Connection, Line, Note, Side, Workspace } from '@darknotes/core/types';
+import type { Arrows, Connection, Group, Line, Note, Side, Workspace } from '@darknotes/core/types';
 import { isDuplicateConnection } from './connection-geometry';
+import { pickGroupColor, placementInGroup } from './group-geometry';
 import type { Api, BoardPayload, WorkspaceSummary } from './api';
 import type { View } from './board-math';
 
@@ -43,6 +44,17 @@ export interface BoardState {
   updateNote(id: string, patch: Partial<Omit<Note, 'id'>>): void;
   deleteNote(id: string): void;
   setView(view: View): void;
+  /** Copies a note 30px down-right with "(copy)" appended; returns the new id. */
+  duplicateNote(id: string): string | null;
+
+  addGroup(init?: Partial<Omit<Group, 'id'>>): string | null;
+  updateGroup(id: string, patch: Partial<Omit<Group, 'id'>>): void;
+  /** Moves a group and the given notes (offsets from the group's origin at drag start) together. */
+  moveGroup(id: string, pos: { x: number; y: number }, noteOffsets: Record<string, { dx: number; dy: number }>): void;
+  /** Deletes the group; its notes stay where they are but are ungrouped. */
+  deleteGroup(id: string): void;
+  /** Sets the note's group; moves it inside the group if it is outside. Pass null to ungroup. */
+  setNoteGroup(noteId: string, groupId: string | null): void;
 
   /** Returns the new id, or null if a note is missing or the same two dots are already joined. */
   addConnection(c: { fromNote: string; fromSide: Side; toNote: string; toSide: Side }): string | null;
@@ -307,6 +319,84 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
             Object.entries(ws.connections).filter(([, c]) => c.fromNote !== id && c.toNote !== id),
           );
           return { ...ws, notes, connections };
+        });
+      },
+
+      duplicateNote(id) {
+        const src = get().ws?.notes[id];
+        if (!src) return null;
+        return get().addNote({
+          ...src,
+          heading: `${src.heading} (copy)`,
+          lines: src.lines.map((l) => ({ ...l })),
+          labels: [...src.labels],
+          x: src.x + 30,
+          y: src.y + 30,
+          groupId: null,
+        } as Partial<Omit<Note, 'id'>>);
+      },
+
+      addGroup(init = {}) {
+        const { ws } = get();
+        if (!ws) return null;
+        const id = `g_${ws.nextGroupId}`;
+        const group: Group = {
+          id,
+          name: 'Group',
+          x: 60,
+          y: 60,
+          w: 460,
+          h: 320,
+          color: pickGroupColor(ws.groups),
+          minimized: false,
+          ...init,
+        };
+        edit((w) => ({ ...w, nextGroupId: w.nextGroupId + 1, groups: { ...w.groups, [id]: group } }));
+        return id;
+      },
+
+      updateGroup(id, patch) {
+        edit((ws) => {
+          const g = ws.groups[id];
+          return g ? { ...ws, groups: { ...ws.groups, [id]: { ...g, ...patch } } } : ws;
+        });
+      },
+
+      moveGroup(id, pos, noteOffsets) {
+        edit((ws) => {
+          const g = ws.groups[id];
+          if (!g) return ws;
+          const notes = { ...ws.notes };
+          for (const [nid, { dx, dy }] of Object.entries(noteOffsets)) {
+            const n = notes[nid];
+            if (n) notes[nid] = { ...n, x: pos.x + dx, y: pos.y + dy };
+          }
+          return { ...ws, notes, groups: { ...ws.groups, [id]: { ...g, x: pos.x, y: pos.y } } };
+        });
+      },
+
+      deleteGroup(id) {
+        edit((ws) => {
+          if (!ws.groups[id]) return ws;
+          const { [id]: _removed, ...groups } = ws.groups;
+          const notes = Object.fromEntries(
+            Object.entries(ws.notes).map(([nid, n]) => [nid, n.groupId === id ? { ...n, groupId: null } : n]),
+          );
+          return { ...ws, groups, notes };
+        });
+      },
+
+      setNoteGroup(noteId, groupId) {
+        edit((ws) => {
+          const note = ws.notes[noteId];
+          if (!note) return ws;
+          if (groupId === null) {
+            return note.groupId === null ? ws : { ...ws, notes: { ...ws.notes, [noteId]: { ...note, groupId: null } } };
+          }
+          const group = ws.groups[groupId];
+          if (!group) return ws;
+          const moved = placementInGroup(note, group);
+          return { ...ws, notes: { ...ws.notes, [noteId]: { ...note, groupId, ...(moved ?? {}) } } };
         });
       },
 
