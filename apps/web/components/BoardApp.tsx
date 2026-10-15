@@ -5,6 +5,7 @@ import { clampZoom, roundZoom, ZOOM_STEP } from '@/lib/board-math';
 import { boardStore, useBoard } from '@/lib/use-board';
 import { Board } from './Board';
 import { ConnectionMenu } from './ConnectionMenu';
+import { ImportDialog } from './ImportDialog';
 import { NoteContextMenu } from './NoteContextMenu';
 import { StylePanel } from './StylePanel';
 import { Toolbar } from './Toolbar';
@@ -103,6 +104,7 @@ export function BoardApp() {
       <ConnectionMenu />
       <NoteContextMenu />
       <StylePanel />
+      <ImportDialog />
       {notice && (
         <div
           role="status"

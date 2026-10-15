@@ -16,6 +16,12 @@ export interface ChangesResult {
   workspace: Workspace;
 }
 
+export interface ImportResult {
+  workspace: Workspace;
+  imported: { notes: number; groups: number; connections: number };
+  skipped: { connections: number };
+}
+
 export interface Api {
   listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[]; currentWorkspaceId: string }>;
   getWorkspace(id: string): Promise<Workspace>;
@@ -23,6 +29,10 @@ export interface Api {
   renameWorkspace(id: string, name: string): Promise<Workspace>;
   deleteWorkspace(id: string): Promise<void>;
   activateWorkspace(id: string): Promise<void>;
+  /** The workspace as an export file (JSON text). */
+  exportWorkspace(id: string): Promise<string>;
+  /** Create a new workspace from an export file's contents. */
+  importWorkspace(payload: unknown): Promise<ImportResult>;
   /** Send only what changed. Safe alongside other writers (MCP, other tabs). */
   applyChanges(id: string, changes: Change[]): Promise<ChangesResult>;
 }
@@ -64,6 +74,21 @@ export function createApi(base = '/api', fetchFn: typeof fetch = (...a) => fetch
     renameWorkspace: (id, name) => call('PATCH', ws(id), { name }),
     deleteWorkspace: async (id) => void (await call('DELETE', ws(id))),
     activateWorkspace: async (id) => void (await call('POST', `${ws(id)}/activate`)),
+    exportWorkspace: async (id) => {
+      const res = await fetchFn(`${base}${ws(id)}/export`);
+      const text = await res.text();
+      if (!res.ok) {
+        let message = `HTTP ${res.status}`;
+        try {
+          message = (JSON.parse(text) as { error?: string }).error ?? message;
+        } catch {
+          /* not JSON: keep the status */
+        }
+        throw new ApiError(res.status, message);
+      }
+      return text;
+    },
+    importWorkspace: (payload) => call('POST', '/workspaces/import', payload),
     applyChanges: (id, changes) => call('POST', `${ws(id)}/changes`, { changes }),
   };
 }

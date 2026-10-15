@@ -8,6 +8,7 @@
  */
 
 import { DEFAULT_NOTE_STYLE } from './defaults';
+import { EXPORT_APP, EXPORT_VERSION } from './export-format';
 import { ConflictError, NotFoundError, ValidationError } from './errors';
 import {
   boardSchema,
@@ -523,3 +524,150 @@ export function applyChanges(wsId: string | undefined, input: { changes: Change[
     return { ...result, workspace: ws };
   });
 }
+
+// ─── export / import ─────────────────────────────────────────
+
+/** What an exported workspace file contains. Flat, so the original app's importer can still read it. */
+export interface WorkspaceExport {
+  app: typeof EXPORT_APP;
+  version: number;
+  exportedAt: string;
+  name: string;
+  boardOffsetX: number;
+  boardOffsetY: number;
+  boardZoom: number;
+  notes: Note[];
+  groups: Group[];
+  connections: Connection[];
+}
+
+export function exportWorkspace(wsId?: string): WorkspaceExport {
+  const ws = getWs(readData(), wsId);
+  return {
+    app: EXPORT_APP,
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    name: ws.name,
+    boardOffsetX: ws.boardOffsetX,
+    boardOffsetY: ws.boardOffsetY,
+    boardZoom: ws.boardZoom,
+    notes: Object.values(ws.notes),
+    groups: Object.values(ws.groups),
+    connections: Object.values(ws.connections),
+  };
+}
+
+export interface ImportResult {
+  workspace: Workspace;
+  imported: { notes: number; groups: number; connections: number };
+  /** Connections left out because they were malformed or pointed at a note that is not in the file. */
+  skipped: { connections: number };
+}
+
+const IMPORT_MAX_ITEMS = 5000;
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const idString = (v: unknown): string | null =>
+  typeof v === 'string' && v !== '' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : null;
+const listOf = (v: unknown): unknown[] => (Array.isArray(v) ? v : isObject(v) ? Object.values(v) : []);
+
+function parseAt<S extends Parameters<typeof parse>[0]>(label: string, schema: S, value: unknown) {
+  try {
+    return parse(schema, value);
+  } catch (err) {
+    throw new ValidationError(`${label}: ${(err as Error).message}`);
+  }
+}
+
+/**
+ * Create a NEW workspace from an exported file. Accepts this app's export, the original app's export (notes
+ * without ids, arrays or id-keyed maps) and a bare array of notes. Everything is given fresh ids, so an import can
+ * never collide with or change existing workspaces. Notes and groups are validated (a bad field rejects the file);
+ * connections that cannot be placed are skipped and counted.
+ */
+export function importWorkspace(raw: unknown): ImportResult {
+  let doc: Record<string, unknown>;
+  if (Array.isArray(raw)) doc = { notes: raw };
+  else if (isObject(raw)) doc = isObject(raw.workspace) ? raw.workspace : raw;
+  else throw new ValidationError('Not a DarkNotes export: expected a JSON object');
+
+  const noteList = listOf(doc.notes);
+  const groupList = listOf(doc.groups);
+  const connList = listOf(doc.connections);
+  if (noteList.length > IMPORT_MAX_ITEMS || groupList.length > IMPORT_MAX_ITEMS || connList.length > IMPORT_MAX_ITEMS) {
+    throw new ValidationError(`Too many items: at most ${IMPORT_MAX_ITEMS} notes, groups and connections each`);
+  }
+
+  const groups = groupList.map((g, i) => {
+    if (!isObject(g)) throw new ValidationError(`groups[${i}]: expected an object`);
+    const { id, ...fields } = g;
+    return { oldId: idString(id), fields: parseAt(`groups[${i}]`, groupInputSchema, fields) };
+  });
+  const notes = noteList.map((n, i) => {
+    if (!isObject(n)) throw new ValidationError(`notes[${i}]: expected an object`);
+    const { id, groupId, ...fields } = n;
+    return { oldId: idString(id), oldGroup: idString(groupId), fields: parseAt(`notes[${i}]`, noteInputSchema, fields) };
+  });
+
+  return mutate((data) => {
+    const wsId = nextId('ws', data.nextWorkspaceId++);
+    const groupIds = new Map<string, string>();
+    const noteIds = new Map<string, string>();
+    const ws: Workspace = {
+      id: wsId,
+      name: (typeof doc.name === 'string' ? doc.name.trim().slice(0, 200) : '') || 'Imported workspace',
+      notes: {},
+      groups: {},
+      connections: {},
+      boardOffsetX: typeof doc.boardOffsetX === 'number' && Number.isFinite(doc.boardOffsetX) ? doc.boardOffsetX : 0,
+      boardOffsetY: typeof doc.boardOffsetY === 'number' && Number.isFinite(doc.boardOffsetY) ? doc.boardOffsetY : 0,
+      boardZoom:
+        typeof doc.boardZoom === 'number' && Number.isFinite(doc.boardZoom) ? Math.min(3, Math.max(0.25, doc.boardZoom)) : 1,
+      nextNoteId: notes.length + 1,
+      nextGroupId: groups.length + 1,
+      nextConnectionId: 1,
+    };
+
+    groups.forEach((g, i) => {
+      const id = `g_${i + 1}`;
+      if (g.oldId && !groupIds.has(g.oldId)) groupIds.set(g.oldId, id);
+      ws.groups[id] = buildGroup(id, g.fields);
+    });
+    notes.forEach((n, i) => {
+      const id = `n_${i + 1}`;
+      if (n.oldId && !noteIds.has(n.oldId)) noteIds.set(n.oldId, id);
+      const note = buildNote(id, n.fields);
+      note.groupId = (n.oldGroup && groupIds.get(n.oldGroup)) || null;
+      // Files from the original app carry no stacking order: keep file order, later notes on top.
+      if (n.fields.zIndex === undefined) note.zIndex = DEFAULT_NOTE_Z + i;
+      ws.notes[id] = note;
+    });
+
+    let skipped = 0;
+    for (const c of connList) {
+      if (!isObject(c)) {
+        skipped++;
+        continue;
+      }
+      const from = idString(c.fromNote);
+      const to = idString(c.toNote);
+      const parsed = connectionInputSchema.safeParse({ ...c, fromNote: from ?? '', toNote: to ?? '' });
+      const fromId = from ? noteIds.get(from) : undefined;
+      const toId = to ? noteIds.get(to) : undefined;
+      if (!parsed.success || !fromId || !toId) {
+        skipped++;
+        continue;
+      }
+      const id = `c_${ws.nextConnectionId++}`;
+      ws.connections[id] = { id, fromNote: fromId, fromSide: parsed.data.fromSide, toNote: toId, toSide: parsed.data.toSide, ...(parsed.data.arrows ? { arrows: parsed.data.arrows } : {}) };
+    }
+
+    data.workspaces[wsId] = ws;
+    return {
+      workspace: ws,
+      imported: { notes: notes.length, groups: groups.length, connections: Object.keys(ws.connections).length },
+      skipped: { connections: skipped },
+    };
+  });
+}
+
+const DEFAULT_NOTE_Z = 10;

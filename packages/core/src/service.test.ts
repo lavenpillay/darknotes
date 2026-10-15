@@ -305,3 +305,123 @@ test('new notes start with the shared default style (sans-serif MesloLG heading 
   );
   assert.equal(n.headingFont, DEFAULT_NOTE_STYLE.headingFont);
 });
+
+// ── export / import ──────────────────────────────────────────
+
+function seedBoard() {
+  const g = svc.createGroup(undefined, { name: 'Ideas', x: 50, y: 60, w: 500, h: 400, color: 'rgba(1,2,3,0.5)', minimized: true });
+  const a = svc.createNote(undefined, { heading: 'Alpha', lines: [{ type: 'check', text: 'do it', checked: true }], labels: ['x'], x: 100, y: 120, bgColor: '#E3F2FD', groupId: g.id });
+  const b = svc.createNote(undefined, { heading: 'Beta', x: 700, y: 120, zIndex: 25 });
+  svc.createConnection(undefined, { fromNote: a.id, fromSide: 'right', toNote: b.id, toSide: 'left', arrows: 'both' });
+  svc.updateWorkspace('ws_1', { boardOffsetX: -30, boardOffsetY: 15, boardZoom: 1.5 });
+  return { a, b, g };
+}
+
+test('exportWorkspace: a flat, versioned document with everything on the board', () => {
+  seedBoard();
+  const out = svc.exportWorkspace();
+  assert.deepEqual([out.app, out.version, out.name], ['darknotes', 1, 'My Workspace']);
+  assert.ok(!Number.isNaN(Date.parse(out.exportedAt)));
+  assert.deepEqual([out.boardOffsetX, out.boardOffsetY, out.boardZoom], [-30, 15, 1.5]);
+  assert.deepEqual(out.notes.map((n) => n.heading), ['Alpha', 'Beta']);
+  assert.equal(out.groups[0]!.minimized, true);
+  assert.equal(out.connections[0]!.arrows, 'both');
+  assert.throws(() => svc.exportWorkspace('ws_404'), NotFoundError);
+});
+
+test('import creates a NEW workspace and leaves everything else alone', () => {
+  seedBoard();
+  const before = svc.getWorkspaceById('ws_1');
+  const r = svc.importWorkspace(svc.exportWorkspace());
+  assert.equal(r.workspace.id, 'ws_2');
+  assert.deepEqual(r.imported, { notes: 2, groups: 1, connections: 1 });
+  assert.deepEqual(r.skipped, { connections: 0 });
+  assert.deepEqual(svc.getWorkspaceById('ws_1'), before); // untouched
+  assert.equal(svc.listWorkspaces().currentWorkspaceId, 'ws_1'); // not activated by the service
+});
+
+test('round trip keeps content, styling, groups, connections, arrows, view and stacking; ids are fresh', () => {
+  const { a } = seedBoard();
+  const ws = svc.importWorkspace(svc.exportWorkspace()).workspace;
+  const [na, nb] = Object.values(ws.notes);
+  assert.deepEqual([na!.heading, na!.lines, na!.labels, na!.bgColor, na!.x, na!.y], [a.heading, a.lines, a.labels, '#E3F2FD', 100, 120]);
+  assert.equal(nb!.zIndex, 25);
+  assert.deepEqual(Object.keys(ws.notes), ['n_1', 'n_2']);
+  assert.deepEqual(Object.keys(ws.groups), ['g_1']);
+  assert.deepEqual([ws.groups.g_1!.name, ws.groups.g_1!.minimized, ws.groups.g_1!.color], ['Ideas', true, 'rgba(1,2,3,0.5)']);
+  assert.equal(na!.groupId, 'g_1'); // membership remapped
+  assert.equal(nb!.groupId, null);
+  const conn = Object.values(ws.connections)[0]!;
+  assert.deepEqual([conn.fromNote, conn.toNote, conn.arrows], [na!.id, nb!.id, 'both']); // endpoints remapped
+  assert.deepEqual([ws.boardOffsetX, ws.boardOffsetY, ws.boardZoom], [-30, 15, 1.5]);
+  assert.deepEqual([ws.nextNoteId, ws.nextGroupId, ws.nextConnectionId], [3, 2, 2]);
+});
+
+test('imported workspaces get working counters, so new notes never reuse an id', () => {
+  seedBoard();
+  const ws = svc.importWorkspace(svc.exportWorkspace()).workspace;
+  assert.equal(svc.createNote(ws.id, { heading: 'next' }).id, 'n_3');
+});
+
+test('the original app\'s export imports: no ids, arrays, numeric references; unplaceable connections are skipped and counted', () => {
+  const legacy = {
+    name: 'Old board',
+    notes: [
+      { heading: 'One', lines: [{ type: 'text', text: 'a' }], labels: [], x: 10, y: 20, w: 300, h: 220, bgColor: '#fff', fontColor: '#000', fontSize: 14, headingFont: 'Lora', headingSize: 17 },
+      { heading: 'Two', x: 400, y: 20 },
+    ],
+    groups: [{ name: 'G', x: 0, y: 0, w: 460, h: 320, color: 'rgba(1,2,3,0.5)' }],
+    connections: [
+      { fromNote: 1, fromSide: 'right', toNote: 2, toSide: 'left', arrows: 'none' }, // ids the file never states
+      { fromNote: 'x', fromSide: 'top', toNote: 'y', toSide: 'top' },
+      { fromNote: 1, fromSide: 'sideways', toNote: 2, toSide: 'left' },
+    ],
+  };
+  const r = svc.importWorkspace(legacy);
+  assert.equal(r.workspace.name, 'Old board');
+  assert.deepEqual(r.imported, { notes: 2, groups: 1, connections: 0 });
+  assert.deepEqual(r.skipped, { connections: 3 }); // none of these notes has an id to point at
+  const [one, two] = Object.values(r.workspace.notes);
+  assert.deepEqual([one!.heading, one!.headingFont, two!.groupId], ['One', 'Lora', null]);
+  assert.ok(two!.zIndex > one!.zIndex); // file order becomes stacking order
+});
+
+test('import resolves connections when the file does state ids (numbers or strings, in arrays or id-keyed maps)', () => {
+  const r = svc.importWorkspace({
+    name: 'Mapped',
+    notes: { 7: { id: 7, heading: 'Seven' }, k: { id: 'k', heading: 'Kay', groupId: 3 } },
+    groups: { 3: { id: 3, name: 'Three' } },
+    connections: [{ id: 'c', fromNote: 7, fromSide: 'bottom', toNote: 'k', toSide: 'top' }],
+  });
+  assert.deepEqual(r.imported, { notes: 2, groups: 1, connections: 1 });
+  const ws = r.workspace;
+  assert.equal(ws.notes.n_2!.groupId, 'g_1');
+  assert.deepEqual([ws.connections.c_1!.fromNote, ws.connections.c_1!.toNote], ['n_1', 'n_2']);
+});
+
+test('import accepts the wrapped form, a bare array of notes, and names the workspace sensibly', () => {
+  assert.equal(svc.importWorkspace({ workspace: { name: 'Wrapped', notes: [{ heading: 'a' }] } }).workspace.name, 'Wrapped');
+  const bare = svc.importWorkspace([{ heading: 'a' }, { heading: 'b' }]);
+  assert.deepEqual([bare.workspace.name, bare.imported.notes], ['Imported workspace', 2]);
+  assert.equal(svc.importWorkspace({ name: '   ', notes: [] }).workspace.name, 'Imported workspace');
+});
+
+test('import clamps the saved view and ignores unknown fields', () => {
+  const ws = svc.importWorkspace({ name: 'v', boardZoom: 99, boardOffsetX: 'no', notes: [{ heading: 'x', mystery: { a: 1 } }] }).workspace;
+  assert.deepEqual([ws.boardZoom, ws.boardOffsetX], [3, 0]);
+  assert.equal('mystery' in Object.values(ws.notes)[0]!, false);
+});
+
+test('import rejects bad input and writes nothing', () => {
+  const before = svc.listWorkspaces().workspaces.length;
+  for (const bad of ['text', 42, null, { notes: [5] }, { notes: [{ x: 'far' }] }, { groups: [{ w: 'wide' }] }, { notes: [{ lines: [{ type: 'bogus', text: 't' }] }] }]) {
+    assert.throws(() => svc.importWorkspace(bad as any), ValidationError, JSON.stringify(bad));
+  }
+  assert.throws(() => svc.importWorkspace({ notes: new Array(5001).fill({}) }), /Too many items/);
+  assert.equal(svc.listWorkspaces().workspaces.length, before);
+  try {
+    svc.importWorkspace({ notes: [{ heading: 'ok' }, { x: 'far' }] });
+  } catch (e) {
+    assert.match((e as Error).message, /notes\[1\]/); // says which entry
+  }
+});

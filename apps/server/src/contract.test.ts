@@ -215,3 +215,35 @@ test('api: POST /changes validates input (400) and unknown workspaces (404)', as
   assert.equal((await api('POST', '/workspaces/ws_1/changes', {})).status, 400);
   assert.equal((await api('POST', '/workspaces/ws_404/changes', { changes: [] })).status, 404);
 });
+
+test('api: GET /export downloads the workspace as a file; POST /workspaces/import creates a new one from it', async () => {
+  tmp.reset();
+  await tool('create_note', { heading: 'Exported note', x: 42, labels: ['k'] });
+  await tool('create_note', { heading: 'Other' });
+  await tool('create_connection', { fromNote: 'n_1', fromSide: 'right', toNote: 'n_2', toSide: 'left' });
+
+  const res = await fetch(`${srv.url}/api/workspaces/ws_1/export`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition')!, /^attachment; filename="darknotes-my_workspace-\d{4}-\d{2}-\d{2}\.json"$/);
+  assert.match(res.headers.get('content-type')!, /application\/json/);
+  const doc = await res.json();
+  assert.deepEqual([doc.app, doc.version, doc.name, doc.notes.length, doc.connections.length], ['darknotes', 1, 'My Workspace', 2, 1]);
+
+  const imported = await api('POST', '/workspaces/import', doc);
+  assert.equal(imported.status, 201);
+  assert.deepEqual(imported.body.imported, { notes: 2, groups: 0, connections: 1 });
+  assert.equal(imported.body.workspace.id, 'ws_2');
+  const copy = (await api('GET', '/workspaces/ws_2/notes')).body;
+  assert.deepEqual(copy.map((n: any) => n.heading).sort(), ['Exported note', 'Other']);
+  assert.equal((await api('GET', '/workspaces/ws_1/notes')).body.length, 2); // the original is untouched
+});
+
+test('api: export of an unknown workspace is 404; import rejects bad files with 400 and a reason', async () => {
+  tmp.reset();
+  assert.equal((await fetch(`${srv.url}/api/workspaces/ws_404/export`)).status, 404);
+  const bad = await api('POST', '/workspaces/import', { notes: [{ x: 'far' }] });
+  assert.equal(bad.status, 400);
+  assert.match(bad.body.error, /notes\[0\]/);
+  assert.equal((await api('POST', '/workspaces/import', 'just text')).status, 400);
+  assert.equal((await api('GET', '/workspaces')).body.workspaces.length, 1); // nothing was created
+});

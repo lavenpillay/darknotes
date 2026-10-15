@@ -8,6 +8,7 @@
  */
 
 import { DEFAULT_NOTE_STYLE } from '@darknotes/core/defaults';
+import { exportFilename } from '@darknotes/core/export-format';
 import { createStore } from 'zustand/vanilla';
 import type { Arrows, Connection, Group, Line, Note, Side, Workspace } from '@darknotes/core/types';
 import type { Api, WorkspaceSummary } from './api';
@@ -46,6 +47,10 @@ export interface BoardState {
   createWorkspace(name: string): Promise<void>;
   renameWorkspace(id: string, name: string): Promise<void>;
   deleteWorkspace(id: string): Promise<void>;
+  /** Saves pending edits, then returns the current workspace as an export file (null if it could not be read). */
+  exportWorkspace(): Promise<{ filename: string; json: string } | null>;
+  /** Creates a new workspace from an export file's text and switches to it. */
+  importWorkspace(text: string): Promise<{ ok: true } | { ok: false; error: string }>;
 
   addNote(init?: Partial<Omit<Note, 'id'>>): string | null;
   updateNote(id: string, patch: Partial<Omit<Note, 'id'>>): void;
@@ -315,6 +320,49 @@ export function createBoardStore({
           if (id === get().currentWsId) adopt(await api.getWorkspace(list.currentWorkspaceId));
         } catch (err) {
           set({ notice: `Could not delete workspace: ${message(err)}` });
+        }
+      },
+
+      async exportWorkspace() {
+        const { currentWsId, ws } = get();
+        if (!currentWsId || !ws) return null;
+        await get().flush();
+        try {
+          const json = await api.exportWorkspace(currentWsId);
+          const note = get().save === 'error' ? ' (some recent edits were not saved yet and are not included)' : '';
+          set({ notice: `Exported "${ws.name}"${note}` });
+          return { filename: exportFilename(ws.name), json };
+        } catch (err) {
+          set({ notice: `Could not export: ${message(err)}` });
+          return null;
+        }
+      },
+
+      async importWorkspace(text) {
+        let payload: unknown;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          return { ok: false, error: 'That is not valid JSON. Choose a file exported from DarkNotes.' };
+        }
+        await get().flush(); // never switch away from unsaved edits
+        if (get().save === 'error') return { ok: false, error: 'Your recent edits are not saved yet. Wait for “Saved”, then try again.' };
+        try {
+          const result = await api.importWorkspace(payload);
+          await loadList();
+          adopt(result.workspace);
+          void api.activateWorkspace(result.workspace.id).catch(() => {});
+          const { notes, groups, connections } = result.imported;
+          const skipped = result.skipped.connections;
+          set({
+            notice:
+              `Imported "${result.workspace.name}": ${notes} note${notes === 1 ? '' : 's'}, ${groups} group${groups === 1 ? '' : 's'}, ` +
+              `${connections} connection${connections === 1 ? '' : 's'}` +
+              (skipped ? ` (${skipped} connection${skipped === 1 ? '' : 's'} skipped: not matched to a note in the file)` : ''),
+          });
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, error: message(err) };
         }
       },
 

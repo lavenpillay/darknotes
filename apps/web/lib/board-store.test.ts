@@ -55,6 +55,16 @@ function fakeApi() {
       core.activateWorkspace(id);
       log.push(`activate ${id}`);
     },
+    async exportWorkspace(id) {
+      guard();
+      log.push(`export ${id}`);
+      return JSON.stringify(core.exportWorkspace(id));
+    },
+    async importWorkspace(payload) {
+      guard();
+      log.push('import');
+      return core.importWorkspace(payload);
+    },
     async applyChanges(id, changes) {
       guard();
       if (state.failSaves > 0) {
@@ -397,4 +407,75 @@ test('server down and nothing cached: error phase', async () => {
   await s().init();
   assert.equal(s().phase, 'error');
   assert.match(s().error!, /network down/);
+});
+
+test('exportWorkspace saves pending edits first, so the file contains them, and names the file', async () => {
+  const { f, s } = make();
+  await s().init();
+  s().addNote({ heading: 'unsaved when export was clicked' });
+  const out = (await s().exportWorkspace())!;
+  assert.match(out.filename, /^darknotes-my_workspace-\d{4}-\d{2}-\d{2}\.json$/);
+  const doc = JSON.parse(out.json);
+  assert.deepEqual([doc.app, doc.name], ['darknotes', 'My Workspace']);
+  assert.deepEqual(doc.notes.map((n: any) => n.heading), ['unsaved when export was clicked']);
+  assert.equal(f.calls.length, 1); // the edit was saved before exporting
+  assert.ok(f.log.includes('export ws_1'));
+  assert.match(s().notice!, /Exported "My Workspace"/);
+});
+
+test('exportWorkspace reports a server failure instead of throwing', async () => {
+  const { f, s } = make();
+  await s().init();
+  f.state.down = true;
+  assert.equal(await s().exportWorkspace(), null);
+  assert.match(s().notice!, /Could not export: network down/);
+});
+
+test('importWorkspace creates a new workspace, switches to it, updates the list, and leaves the old one alone', async () => {
+  const { f, s } = make();
+  claude.createNote(undefined, { heading: 'mine', x: 5 });
+  await s().init();
+  const file = JSON.stringify({ name: 'From file', notes: [{ id: 'a', heading: 'A', x: 1 }, { id: 'b', heading: 'B' }], connections: [{ fromNote: 'a', fromSide: 'right', toNote: 'b', toSide: 'left' }] });
+
+  const result = await s().importWorkspace(file);
+  assert.deepEqual(result, { ok: true });
+  assert.equal(s().currentWsId, 'ws_2');
+  assert.equal(s().ws!.name, 'From file');
+  assert.deepEqual(Object.values(s().ws!.notes).map((n) => n.heading), ['A', 'B']);
+  assert.equal(Object.keys(s().ws!.connections).length, 1);
+  assert.equal(s().workspaces.length, 2);
+  assert.equal(s().save, 'saved');
+  assert.match(s().notice!, /Imported "From file": 2 notes, 0 groups, 1 connection$/);
+  assert.ok(f.log.includes('activate ws_2'));
+  assert.deepEqual(Object.values(core.getWorkspaceById('ws_1').notes).map((n) => n.heading), ['mine']);
+});
+
+test('importWorkspace says when connections were skipped', async () => {
+  const { s } = make();
+  await s().init();
+  await s().importWorkspace(JSON.stringify({ name: 'Old', notes: [{ heading: 'no id' }], connections: [{ fromNote: 1, fromSide: 'top', toNote: 2, toSide: 'top' }] }));
+  assert.match(s().notice!, /1 note, 0 groups, 0 connections \(1 connection skipped/);
+});
+
+test('importWorkspace rejects bad files without changing anything and says why', async () => {
+  const { f, s } = make();
+  await s().init();
+  const notJson = await s().importWorkspace('{ nope');
+  assert.deepEqual([notJson.ok, (notJson as any).error], [false, 'That is not valid JSON. Choose a file exported from DarkNotes.']);
+  const bad = await s().importWorkspace(JSON.stringify({ notes: [{ x: 'far' }] }));
+  assert.equal(bad.ok, false);
+  assert.match((bad as any).error, /notes\[0\]/);
+  assert.equal(s().currentWsId, 'ws_1');
+  assert.equal(s().workspaces.length, 1);
+  assert.deepEqual(f.log.filter((l) => l === 'import').length, 1); // the invalid JSON never reached the server
+});
+
+test('importWorkspace saves pending edits before switching to the imported workspace', async () => {
+  const { f, s } = make();
+  await s().init();
+  s().addNote({ heading: 'pending' });
+  await s().importWorkspace(JSON.stringify({ name: 'X', notes: [] }));
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0]!.id, 'ws_1');
+  assert.equal(Object.values(core.getWorkspaceById('ws_1').notes)[0]!.heading, 'pending');
 });

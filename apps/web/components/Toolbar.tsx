@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP, roundZoom, visibleCenter, zoomAround } from '@/lib/board-math';
+import { downloadText } from '@/lib/download';
+import { useUi } from '@/lib/ui-store';
 import { boardStore, useBoard } from '@/lib/use-board';
 import { viewportSize } from './Board';
 
@@ -182,6 +184,11 @@ export function Toolbar() {
     boardStore.getState().addNote({ x: Math.round(c.x - 150), y: Math.round(c.y - 110) });
   };
 
+  const exportNow = async () => {
+    const out = await boardStore.getState().exportWorkspace();
+    if (out) downloadText(out.filename, out.json);
+  };
+
   const newGroup = () => {
     const { ws } = boardStore.getState();
     if (!ws) return;
@@ -202,6 +209,17 @@ export function Toolbar() {
       </span>
 
       <div className="ml-auto flex items-center gap-2">
+        <button className={btn} aria-label="Export this workspace" title="Export this workspace as a file" disabled={!hasWs} onClick={() => void exportNow()}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
+        <button className={btn} aria-label="Import a workspace" title="Import a workspace from a file" disabled={!hasWs} onClick={() => useUi.setState({ importOpen: true })}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </button>
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <button className={btn} aria-label="Zoom out" disabled={!hasWs || zoom <= MIN_ZOOM} onClick={() => setZoom(zoom - ZOOM_STEP)}>
           −
         </button>

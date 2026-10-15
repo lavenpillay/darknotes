@@ -14,7 +14,10 @@ import {
   deleteGroup,
   deleteNote,
   deleteWorkspace,
+  exportFilename,
+  exportWorkspace,
   getNote,
+  importWorkspace,
   getWorkspaceById,
   listConnections,
   listGroups,
@@ -60,6 +63,15 @@ export function createApiRouter(): Router {
   }));
   router.post('/workspaces', h((req, res) => {
     res.status(201).json(createWorkspace(req.body?.name));
+  }));
+  // Import must be registered before the /workspaces/:wsId routes.
+  router.post('/workspaces/import', h((req, res) => {
+    res.status(201).json(importWorkspace(req.body));
+  }));
+  router.get('/workspaces/:wsId/export', h((req, res) => {
+    const doc = exportWorkspace(p(req, 'wsId'));
+    res.setHeader('Content-Disposition', `attachment; filename="${exportFilename(doc.name)}"`);
+    res.type('application/json').send(JSON.stringify(doc, null, 2));
   }));
   router.get('/workspaces/:wsId', h((req, res) => {
     res.json(getWorkspaceById(p(req, 'wsId')));

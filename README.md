@@ -2,7 +2,7 @@
 
 A visual note board with a local REST API and an MCP server, so Claude and other MCP-compatible AI clients can read and write your notes.
 
-> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can already create, edit, move, resize and delete notes, draw connections, use groups, style notes (colours, text size, heading font), navigate with a minimap, pan and zoom, and manage workspaces, but it does not yet have import/export or migration of boards saved by the original app. Until it does, the full UI is still the original single-file app, served by the server at <http://localhost:3737>. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
+> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can now do nearly everything the original app did (the gaps are the *Clear All* button and the docs page, which the server still serves from the original files): create, edit, move, resize and delete notes, draw connections, use groups, style notes (colours, text size, heading font), navigate with a minimap, import and export workspaces, pan and zoom, and manage workspaces. The original single-file app is still served by the server at <http://localhost:3737> until the cleanup that removes it. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
 
 ## What this does
 
@@ -166,6 +166,8 @@ Base URL: `http://localhost:3737/api`. Errors are JSON: `{ "error": "message" }`
 | GET | `/workspaces` | List workspaces |
 | POST | `/workspaces` | Create workspace |
 | GET | `/workspaces/:id` | Get workspace |
+| GET | `/workspaces/:id/export` | Download the workspace as an export file (`Content-Disposition: attachment`) |
+| POST | `/workspaces/import` | Create a **new** workspace from an export file's JSON (also accepts the original app's files); returns `{ workspace, imported, skipped }` |
 | PATCH | `/workspaces/:id` | Update workspace (name, board offset, zoom) |
 | DELETE | `/workspaces/:id` | Delete workspace |
 | POST | `/workspaces/:id/activate` | Make this the current workspace |
@@ -301,6 +303,7 @@ New behaviour goes into `packages/core/src/service.ts`; the REST routes (`apps/s
 - The server is the source of truth. Edits show instantly and are saved after a short pause; the toolbar shows *Saved / Unsaved changes / Saving… / Not saved*.
 - Saving is incremental and merge-safe, so Claude can edit while the tab is open: see [How saving and syncing work](#how-saving-and-syncing-work).
 - Workspace names and the workspace list come from the server, so a workspace created or renamed through MCP appears here (and renames made here reach MCP).
+- **Export and import** (the download and upload buttons in the toolbar). **Export** saves any pending edits, then downloads the current workspace as `darknotes-<name>-<date>.json`. **Import** takes such a file (choose it, or paste its contents) and creates a **new workspace** from it, then switches to it; your existing workspaces are never changed or overwritten. Details below.
 - **Minimap** (bottom-right): an overview of the whole board with a box for what is on screen. Click it to jump there, drag the box to pan, drag the top-left corner to resize it (it keeps its shape, 160 to 520 px wide), or collapse it with the chevron to **mini-mode**, a small thumbnail that still navigates (use the expand button to bring the full map back). Arrow keys pan when it has focus. Size and mode are remembered per browser. Notes are drawn in their colours, groups as tinted rectangles, connections as thin lines; notes inside minimized groups are left out.
 - Notes: drag anywhere that is not a text field; resize from the corner, right or bottom edge; right-click for Duplicate, Add to / Remove from Group, Delete.
 - **Style panel** (the *Style* button on a note): note colour (20 presets), text colour (10 presets), body text size (11 to 24 px, stepper), heading font (20 fonts in a grouped list, shown in their own typeface) and heading size (12 to 36 px). Changes apply live. A contrast readout under the text colours warns when text will be hard to read. *Reset to default* restores the defaults below.
@@ -309,3 +312,22 @@ New behaviour goes into `packages/core/src/service.ts`; the REST routes (`apps/s
 - Connections: drag from a dot on a note's edge to a dot on another note (it snaps within 30 px); click a line to delete it; right-click a line for arrowheads.
 - Groups: **+ New Group** adds one; drag its header (notes inside move with it), resize from the corner, rename, recolour, minimize to a pill (hides its notes and their connections) or delete (notes are kept).
 - Controls so far: Ctrl/Cmd + scroll or Ctrl/Cmd + `+` / `-` / `0` to zoom, scroll or Space/middle-drag or dragging empty board to pan; in a note, Enter adds a line, Shift+Enter breaks a line, Tab toggles a checkbox, Backspace on an empty line removes it.
+
+### Export and import files
+
+An export is one flat JSON file:
+
+```json
+{
+  "app": "darknotes", "version": 1, "exportedAt": "2026-10-15T20:00:00.000Z",
+  "name": "My Workspace",
+  "boardOffsetX": 0, "boardOffsetY": 0, "boardZoom": 1,
+  "notes":       [ { "id": "n_1", "heading": "…", "lines": [ … ], "labels": [ … ], "x": 0, "y": 0, "w": 300, "h": 220, "bgColor": "#FFF9C4", "groupId": "g_1", "zIndex": 10, … } ],
+  "groups":      [ { "id": "g_1", "name": "…", "x": 0, "y": 0, "w": 460, "h": 320, "color": "rgba(…)", "minimized": false } ],
+  "connections": [ { "id": "c_1", "fromNote": "n_1", "fromSide": "right", "toNote": "n_2", "toSide": "left", "arrows": "end" } ]
+}
+```
+
+It holds everything on the board (content, colours, fonts, positions, sizes, stacking order, groups and their members, connections and arrowheads, and the saved pan/zoom) and nothing else, so it is safe to share or keep as a backup. The layout is deliberately compatible with the original app's importer, which only reads `name`, `notes`, `groups` and `connections` (I have not re-tested that importer against the new files).
+
+**Import rules.** Importing always creates a new workspace (named after the file, or "Imported workspace"). Every note, group and connection gets a fresh id and the links between them are rewritten to match, so an import can never collide with, or change, anything you already have. It accepts this app's files, the original app's files (notes without ids, arrays or id-keyed objects, numeric ids), and a bare JSON array of notes. A file with a bad value (for example a note position that is not a number) is rejected as a whole with a message naming the entry, and nothing is created. A connection that is malformed or points at a note the file does not contain is skipped, and the app tells you how many; the original app's exports carry no note ids, so connections in them cannot always be restored. Limits: 5,000 notes, groups and connections each, about 10 MB. Over HTTP: `GET /api/workspaces/:id/export` and `POST /api/workspaces/import` (see the REST table).
