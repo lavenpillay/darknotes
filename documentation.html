@@ -41,6 +41,12 @@
       <a class="nav-link" href="#import-export">Import & Export</a>
     </div>
     <div class="nav-section">
+      <span class="nav-section-title">New Web App</span>
+      <a class="nav-link" href="#webapp">Overview</a>
+      <a class="nav-link" href="#style-panel">Style Panel</a>
+      <a class="nav-link" href="#sync">Saving &amp; Syncing</a>
+    </div>
+    <div class="nav-section">
       <span class="nav-section-title">MCP Integration</span>
       <a class="nav-link" href="#mcp-overview">MCP Overview</a>
       <a class="nav-link" href="#mcp-setup">Setup</a>
@@ -76,6 +82,8 @@
     <div class="feature-card"><h4><span class="icon">🗺️</span> Minimap</h4><p>Always-visible overview of the entire canvas with a draggable viewport window.</p></div>
     <div class="feature-card"><h4><span class="icon">🤖</span> MCP server</h4><p>Full CRUD access to your notes from Claude and any MCP-compatible AI client.</p></div>
   </div>
+
+  <div class="callout"><strong>Two interfaces.</strong> DarkNotes is moving to a new web app (<a href="#webapp">see below</a>). The <strong>original app</strong>, served at <code>http://localhost:3737</code>, has every feature described in the guide sections from <em>Interface</em> to <em>Import &amp; Export</em>. The <strong>new web app</strong> (<code>http://localhost:3000</code> in development) already covers most of the canvas and adds the <a href="#style-panel">Style panel</a> and <a href="#sync">safe syncing with Claude</a>; the minimap and import/export are still to come. The MCP, REST and data-file sections apply to both.</div>
 
   <!-- INTERFACE -->
   <h2 id="interface">Interface</h2>
@@ -251,6 +259,81 @@
 
   <hr>
 
+  <!-- NEW WEB APP -->
+  <h2 id="webapp">The New Web App</h2>
+  <p>The new web app is a rebuild of the interface on Next.js and Tailwind, on top of the same server and data file. Start it together with the server:</p>
+  <pre>npm install
+npm run dev:all      # API server on :3737 and the new app on http://localhost:3000</pre>
+  <p>Its board is the same canvas, so notes, groups, connections and workspaces made in one interface are there in the other, and Claude sees them through MCP.</p>
+
+  <h3>What works today</h3>
+  <ul>
+    <li><strong>Notes</strong> — create with <em>+ New Note</em>, edit the heading and lines (<kbd>Enter</kbd> adds a line, <kbd>Shift</kbd>+<kbd>Enter</kbd> breaks a line, <kbd>Tab</kbd> toggles a checkbox, <kbd>Backspace</kbd> on an empty line removes it), add labels, drag anywhere that is not a text field, resize from the corner, right edge or bottom edge (minimum 220×140), and right-click for <em>Duplicate</em>, <em>Add to / Remove from Group</em> and <em>Delete</em>.</li>
+    <li><strong>Connections</strong> — drag from a dot on a note's edge to a dot on another note (it snaps within 30 px). Click a line to delete it; right-click it to choose arrowheads (none, end, start or both).</li>
+    <li><strong>Groups</strong> — <em>+ New Group</em>. Drag the header to move the group and the notes inside it, resize from the corner, rename, recolour, minimize to a pill (hides its notes and their connections) or delete (the notes are kept).</li>
+    <li><strong>Pan and zoom</strong> — scroll, <kbd>Space</kbd> + drag, middle-drag or drag empty board to pan; <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + scroll, <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd> or the toolbar buttons to zoom (25&ndash;300%). Pan and zoom are saved per workspace.</li>
+    <li><strong>Workspaces</strong> — the list comes from the server, so workspaces created or renamed through MCP appear, and renames made here reach MCP. Hover a workspace in the dropdown to rename or delete it.</li>
+    <li><strong>Style panel</strong> — colours, text size and heading font, with your own colours (<a href="#style-panel">below</a>).</li>
+  </ul>
+
+  <h3>Not in the new app yet</h3>
+  <p>The minimap, import and export of a workspace, and importing boards saved in the original app's browser storage. Use the original app at <code>http://localhost:3737</code> for those.</p>
+
+  <!-- STYLE PANEL -->
+  <h2 id="style-panel">Style Panel</h2>
+  <p>Click <strong>Style</strong> in a note's footer to open one panel for everything about how that note looks. Changes apply to the note as you make them. Click outside the panel or press <kbd>Esc</kbd> to close it.</p>
+
+  <h3>Colours</h3>
+  <ul>
+    <li><strong>Note colour</strong> — 20 presets. <strong>Text colour</strong> — 10 presets. The selected colour has a ring.</li>
+    <li>A readout under the text colours shows the contrast between the text and the note (for example <em>9.6 : 1, easy to read</em>) and warns when text will be hard to read: 7 : 1 or more is easy, 4.5 : 1 is readable, below that is low contrast. Translucent colours are blended with what is behind them first.</li>
+  </ul>
+
+  <h3>Adding your own colours</h3>
+  <p>The <strong>+</strong> at the end of each colour row opens a picker with a saturation/brightness square, a hue slider, an opacity slider and a hex field (<kbd>#rgb</kbd> or <kbd>#rrggbb</kbd>). The note changes live while you choose. Click <strong>Save to palette</strong> to keep the colour as a swatch in that row, or <strong>Done</strong> to use it without saving.</p>
+  <ul>
+    <li>Each row keeps up to 24 saved colours; when it is full the oldest makes room. Hover a saved swatch and click its <strong>×</strong> to remove it.</li>
+    <li>Saved colours belong to <strong>this browser</strong> (they are kept in its <code>localStorage</code>, not in the data file), so they do not appear in another browser. The notes themselves keep their colours everywhere.</li>
+  </ul>
+
+  <h3>Text size and heading font</h3>
+  <ul>
+    <li><strong>Body text</strong> — a &minus; / + stepper through 11, 12, 13, 14, 15, 16, 18, 20 and 24 px.</li>
+    <li><strong>Heading font</strong> — a list of 20 fonts in groups (Default, Serif, Sans, Mono, Display, Script), each shown in its own typeface. <strong>Heading size</strong> is a slider from 12 to 36 px.</li>
+    <li><strong>Reset to default</strong> restores the colours, sizes and heading font a new note starts with. Your saved colours are not touched.</li>
+  </ul>
+
+  <h3>The default font</h3>
+  <p>New notes use a sans-serif heading font: <strong>MesloLG when it is installed on your computer</strong>, otherwise DM Sans. MesloLG is recognised under its common names (<code>MesloLGS NF</code>, the Nerd Font builds, plain <em>Meslo LG</em> and the <em>for Powerline</em> builds), and the font list says whether it was found. The default applies to notes created from the web app, through MCP and through the REST API alike. Notes you already have keep their fonts.</p>
+
+  <!-- SYNC -->
+  <h2 id="sync">Saving &amp; Syncing</h2>
+  <p>You can keep the web app open while Claude edits your notes. The app saves only <em>what you changed</em>, and merges in what others changed, so neither side overwrites the other.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li>Edits show immediately. About half a second after you stop, the app sends just the differences (a move, a new note, a deleted group) to the server. The toolbar shows <em>Saved</em>, <em>Unsaved changes</em>, <em>Saving&hellip;</em> or <em>Not saved</em>.</li>
+    <li>The server's reply, and a check every 4 seconds while the tab is visible, bring in anything changed elsewhere. Notes, groups and connections Claude adds or edits appear on their own, and are never erased by one of your saves.</li>
+    <li>Things you create in the web app get random ids such as <code>n_k3f9a2x</code>, so they cannot collide with the <code>n_1</code>, <code>n_2</code> ids the server hands out. Treat ids as opaque.</li>
+  </ul>
+
+  <h3>When both of you change the same thing</h3>
+  <ul>
+    <li><strong>Different notes, or different fields of one note</strong> (you move it while Claude renames it): both changes are kept.</li>
+    <li><strong>The same field of the same note</strong> before the next sync: your value wins until it is saved, then the last write wins. A note's lines are replaced as a whole, so two people typing in the <em>same note</em> at once can overwrite each other.</li>
+    <li><strong>A delete beats an edit</strong> made on the other side.</li>
+  </ul>
+
+  <h3>Failures and offline</h3>
+  <ul>
+    <li>If a save fails, your edits stay on screen, the toolbar shows <em>Not saved</em>, and the app retries every 5 seconds. A save is also started when you hide or close the tab.</li>
+    <li>If the server cannot be reached when you open the app, it shows the copy it last cached in the browser, marked <em>Offline</em>, and sends your unsaved edits once the server is back.</li>
+  </ul>
+
+  <div class="callout"><strong>Original app:</strong> the original interface on port 3737 still replaces the whole board each time it saves, so it can erase notes Claude added while its tab was open. Reload it before editing after Claude has changed things, or use the new web app.</div>
+
+  <hr>
+
   <!-- MCP OVERVIEW -->
   <h2 id="mcp-overview">MCP Integration — Overview</h2>
   <p>The DarkNotes MCP server exposes your notes to <strong>Claude</strong> and any <a href="https://modelcontextprotocol.io">Model Context Protocol</a>-compatible AI client. You can ask Claude to read notes, create new ones, check off tasks, reorganise workspaces, and more — without opening the browser.</p>
@@ -263,7 +346,7 @@
 
   <div class="callout"><strong>Note:</strong> All data is stored in <code>~/.darknotes/data.json</code>. The app works fully offline without the server — localStorage is always kept in sync as a fallback.</div>
 
-  <div class="callout"><strong>Known limitation:</strong> the browser app saves each board (notes, groups, connections) to the server, but it keeps the <em>list</em> of workspaces and their names in the browser. A workspace created or renamed through MCP or the REST API does not appear or change in the browser until the new interface replaces this one. Notes you change through MCP appear in the browser after a reload.</div>
+  <div class="callout"><strong>Original app only:</strong> it keeps the <em>list</em> of workspaces and their names in the browser, so a workspace created or renamed through MCP or the REST API does not appear there, and notes Claude changes show up only after a reload. The <a href="#webapp">new web app</a> does not have these limits: it reads the workspace list from the server and merges Claude's changes in every few seconds (see <a href="#sync">Saving &amp; Syncing</a>).</div>
 
   <!-- MCP SETUP -->
   <h2 id="mcp-setup">Setup</h2>
@@ -294,8 +377,9 @@ docker run -d \
 
 npm run serve        # API mode: web app, /api and /mcp on http://localhost:3737
 npm run mcp          # MCP over stdio only (what Claude Desktop / Claude Code launch)
-npm run serve:both   # API mode plus a stdio MCP server in one process</pre>
-        <p class="text-muted mt-sm">Requires Node.js 22 or newer. Use <code>npm run dev:server</code> to restart automatically on file changes.</p>
+npm run serve:both   # API mode plus a stdio MCP server in one process
+npm run dev:all      # API server (:3737) and the new web app (:3000) together, for development</pre>
+        <p class="text-muted mt-sm">Requires Node.js 22 or newer. <code>npm run serve</code> starts only the server (and the original app on port 3737); the new web app on port 3000 is a separate process, which <code>npm run dev:all</code> starts for you. Use <code>npm run dev:server</code> to restart the server automatically on file changes.</p>
       </div>
     </div>
     <div class="step">
@@ -379,7 +463,7 @@ npm run serve:both   # API mode plus a stdio MCP server in one process</pre>
     <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
     <tr><td class="tool-name">list_notes</td><td>List notes with optional filters.</td><td><code>search</code>, <code>label</code>, <code>groupId</code></td></tr>
     <tr><td class="tool-name">get_note</td><td>Get full note content including all lines.</td><td><code>noteId</code></td></tr>
-    <tr><td class="tool-name">create_note</td><td>Create a note. Body can be plain text or a <code>lines</code> array. Place and size it with <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code>.</td><td><code>heading</code>, <code>body</code> or <code>lines</code>, <code>labels</code>, <code>bgColor</code>, <code>fontColor</code>, <code>fontSize</code>, <code>headingFont</code>, <code>headingSize</code>, <code>groupId</code>, <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code></td></tr>
+    <tr><td class="tool-name">create_note</td><td>Create a note. Body can be plain text or a <code>lines</code> array. Place and size it with <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code>. The heading font defaults to <code>MesloLG</code> (a sans-serif).</td><td><code>heading</code>, <code>body</code> or <code>lines</code>, <code>labels</code>, <code>bgColor</code>, <code>fontColor</code>, <code>fontSize</code>, <code>headingFont</code>, <code>headingSize</code>, <code>groupId</code>, <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code></td></tr>
     <tr><td class="tool-name">update_note</td><td>Update any note field, including position, size and fonts. Only supplied fields change; <code>groupId: null</code> ungroups.</td><td><code>noteId</code>, any note field</td></tr>
     <tr><td class="tool-name">delete_note</td><td>Delete a note and its connections.</td><td><code>noteId</code></td></tr>
     <tr><td class="tool-name">append_to_note</td><td>Append lines without replacing existing content.</td><td><code>noteId</code>, <code>body</code> or <code>lines</code></td></tr>
@@ -402,7 +486,7 @@ npm run serve:both   # API mode plus a stdio MCP server in one process</pre>
   <table class="tool-table">
     <tr><th>Tool</th><th>Description</th><th>Key parameters</th></tr>
     <tr><td class="tool-name">list_connections</td><td>List all connections with note headings resolved.</td><td>—</td></tr>
-    <tr><td class="tool-name">create_connection</td><td>Draw a connection between two existing notes. <code>fromSide</code> / <code>toSide</code> are <code>top</code>, <code>right</code>, <code>bottom</code> or <code>left</code>.</td><td><code>fromNote</code>, <code>fromSide</code>, <code>toNote</code>, <code>toSide</code></td></tr>
+    <tr><td class="tool-name">create_connection</td><td>Draw a connection between two existing notes. <code>fromSide</code> / <code>toSide</code> are <code>top</code>, <code>right</code>, <code>bottom</code> or <code>left</code>. Optional <code>arrows</code>: <code>none</code>, <code>start</code>, <code>end</code> or <code>both</code>.</td><td><code>fromNote</code>, <code>fromSide</code>, <code>toNote</code>, <code>toSide</code>, <code>arrows</code></td></tr>
     <tr><td class="tool-name">delete_connection</td><td>Remove a connection line.</td><td><code>connectionId</code></td></tr>
   </table>
 
@@ -425,7 +509,8 @@ npm run serve:both   # API mode plus a stdio MCP server in one process</pre>
     <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId</td><td>Get full workspace</td></tr>
     <tr><td><span class="method patch">PATCH</span></td><td class="endpoint">/workspaces/:wsId</td><td>Update workspace fields</td></tr>
     <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId</td><td>Delete workspace</td></tr>
-    <tr><td><span class="method put">PUT</span></td><td class="endpoint">/workspaces/:wsId/board</td><td>Save full board state (browser sync)</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/changes</td><td>Apply incremental edits <code>{ "changes": [ … ] }</code> (create, patch or delete notes, groups and connections; set the view). Safe alongside other writers; returns the resulting workspace</td></tr>
+    <tr><td><span class="method put">PUT</span></td><td class="endpoint">/workspaces/:wsId/board</td><td>Replace the whole board (original app only: it overwrites anything added elsewhere in the meantime)</td></tr>
     <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/activate</td><td>Set as current workspace</td></tr>
   </table>
 
@@ -447,7 +532,7 @@ npm run serve:both   # API mode plus a stdio MCP server in one process</pre>
     <tr><td><span class="method patch">PATCH</span></td><td class="endpoint">/workspaces/:wsId/groups/:groupId</td><td>Update group</td></tr>
     <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId/groups/:groupId</td><td>Delete group</td></tr>
     <tr><td><span class="method get">GET</span></td><td class="endpoint">/workspaces/:wsId/connections</td><td>List connections</td></tr>
-    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/connections</td><td>Create connection <code>{ fromNote, fromSide, toNote, toSide }</code>; both notes must exist</td></tr>
+    <tr><td><span class="method post">POST</span></td><td class="endpoint">/workspaces/:wsId/connections</td><td>Create connection <code>{ fromNote, fromSide, toNote, toSide, arrows? }</code>; both notes must exist</td></tr>
     <tr><td><span class="method delete">DELETE</span></td><td class="endpoint">/workspaces/:wsId/connections/:connId</td><td>Delete connection</td></tr>
   </table>
 
@@ -506,7 +591,7 @@ npm run serve:both   # API mode plus a stdio MCP server in one process</pre>
   <h2 id="data">Data &amp; Privacy</h2>
   <p>All DarkNotes data is stored <strong>locally on your machine</strong>:</p>
   <ul>
-    <li><strong>Browser</strong>: <code>localStorage</code> (under the <code>darknotes_*</code> keys) keeps the app working offline at all times.</li>
+    <li><strong>Browser</strong>: <code>localStorage</code> keeps a cached copy so the app can work offline (<code>darknotes_*</code> keys in the original app, <code>darknotes:v3:*</code> in the new one), and the new app's saved colours (<code>darknotes:v1:palette</code>).</li>
     <li><strong>MCP server</strong>: <code>~/.darknotes/data.json</code> — plain, human-readable JSON. Back it up, version-control it, or copy it between machines freely.</li>
   </ul>
   <p>No data is sent to any cloud service. The server listens on <code>127.0.0.1</code> by default and talks to Claude via stdio or HTTP on your own machine (see Configuration &amp; Security before exposing it further).</p>
