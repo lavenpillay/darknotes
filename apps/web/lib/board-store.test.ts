@@ -1,333 +1,400 @@
-import { test, mock } from 'node:test';
+// Store tests run against the REAL core service (temp data dir), so they exercise the server's actual
+// change-application rules. `claude` below plays another writer (MCP) using the same service the MCP tools call.
+import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Workspace } from '@darknotes/core/types';
-import type { Api, BoardPayload, WorkspaceSummary } from './api';
-import { createBoardStore, type StorageLike } from './board-store';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import * as core from '@darknotes/core';
+import type { Change } from '@darknotes/core/types';
+import type { Api } from './api';
+import { createBoardStore, randomId, type StorageLike } from './board-store';
 
-const ws = (id: string, name = id): Workspace => ({
-  id,
-  name,
-  notes: {},
-  groups: {},
-  connections: {},
-  boardOffsetX: 0,
-  boardOffsetY: 0,
-  boardZoom: 1,
-  nextNoteId: 1,
-  nextGroupId: 1,
-  nextConnectionId: 1,
+let tmp: string;
+beforeEach(() => {
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-web-'));
+  process.env.DARKNOTES_DATA_DIR = tmp;
+});
+afterEach(() => {
+  delete process.env.DARKNOTES_DATA_DIR;
+  fs.rmSync(tmp, { recursive: true, force: true });
 });
 
-function fakeApi(initial: Workspace[] = [ws('ws_1', 'One'), ws('ws_2', 'Two')]) {
-  const db = new Map(initial.map((w) => [w.id, structuredClone(w)]));
-  let current = initial[0]!.id;
-  const saves: Array<{ id: string; board: BoardPayload }> = [];
-  const calls: string[] = [];
-  const state = { failSaves: 0, down: false };
-  const summaries = (): WorkspaceSummary[] =>
-    [...db.values()].map((w) => ({ id: w.id, name: w.name, noteCount: Object.keys(w.notes).length, groupCount: 0 }));
+function fakeApi() {
+  const calls: Array<{ id: string; changes: Change[] }> = [];
+  const log: string[] = [];
+  const state = { failSaves: 0, down: false, hold: null as Promise<void> | null };
   const guard = () => {
     if (state.down) throw new Error('network down');
   };
   const api: Api = {
     async listWorkspaces() {
       guard();
-      return { workspaces: summaries(), currentWorkspaceId: current };
+      const { workspaces, currentWorkspaceId } = core.listWorkspaces();
+      return { workspaces, currentWorkspaceId };
     },
     async getWorkspace(id) {
       guard();
-      calls.push(`get ${id}`);
-      const w = db.get(id);
-      if (!w) throw new Error('Workspace not found');
-      return structuredClone(w);
+      const ws = core.getWorkspaceById(id);
+      if (state.hold) await state.hold; // lets a test make this response arrive late
+      return ws;
     },
     async createWorkspace(name) {
       guard();
-      const w = ws(`ws_${db.size + 1}`, name);
-      db.set(w.id, w);
-      return structuredClone(w);
+      return core.createWorkspace(name);
     },
     async renameWorkspace(id, name) {
       guard();
-      const w = db.get(id)!;
-      w.name = name;
-      return structuredClone(w);
+      return core.renameWorkspace(id, name);
     },
     async deleteWorkspace(id) {
       guard();
-      db.delete(id);
-      if (current === id) current = [...db.keys()][0]!;
+      core.deleteWorkspace(id);
     },
     async activateWorkspace(id) {
-      current = id;
-      calls.push(`activate ${id}`);
+      core.activateWorkspace(id);
+      log.push(`activate ${id}`);
     },
-    async saveBoard(id, board) {
+    async applyChanges(id, changes) {
       guard();
       if (state.failSaves > 0) {
         state.failSaves--;
         throw new Error('boom');
       }
-      saves.push({ id, board: structuredClone(board) });
-      Object.assign(db.get(id)!, structuredClone(board));
+      calls.push({ id, changes });
+      return core.applyChanges(id, { changes });
     },
   };
-  return { api, db, saves, calls, state };
+  return { api, calls, log, state };
 }
 
-const memoryStorage = (): StorageLike & { data: Map<string, string> } => {
-  const data = new Map<string, string>();
-  return { data, getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) };
+let k = 0;
+const idGen = (p: string) => `${p}_t${++k}`;
+const make = (extra: Partial<Parameters<typeof createBoardStore>[0]> = {}) => {
+  const f = fakeApi();
+  const store = createBoardStore({ api: f.api, idGen, ...extra });
+  return { f, store, s: () => store.getState() };
 };
+const memoryStorage = (): StorageLike => {
+  const data = new Map<string, string>();
+  return { getItem: (key) => data.get(key) ?? null, setItem: (key, v) => void data.set(key, v) };
+};
+const serverNotes = () => core.getWorkspaceById('ws_1').notes;
+const claude = core; // another writer
 
 test('init loads the current workspace from the server', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
-  const s = store.getState();
-  assert.equal(s.phase, 'ready');
-  assert.equal(s.currentWsId, 'ws_1');
-  assert.equal(s.workspaces.length, 2);
-  assert.equal(s.save, 'saved');
+  const { s } = make();
+  await s().init();
+  assert.equal(s().phase, 'ready');
+  assert.equal(s().currentWsId, 'ws_1');
+  assert.equal(s().save, 'saved');
 });
 
-test('edits are applied at once and coalesced into a single debounced save', async (t) => {
+test('edits apply at once and are coalesced into ONE debounced save with only the changes', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api, saveDelayMs: 600 });
-  await store.getState().init();
+  const { f, s } = make({ saveDelayMs: 600 });
+  await s().init();
 
-  const id = store.getState().addNote({ heading: 'A', x: 5 })!;
-  store.getState().updateNote(id, { heading: 'B' });
-  store.getState().setView({ offsetX: -10, offsetY: 4, zoom: 1.5 });
-  assert.equal(store.getState().save, 'dirty');
-  assert.equal(store.getState().ws!.notes[id]!.heading, 'B');
-  assert.equal(f.saves.length, 0);
+  const id = s().addNote({ heading: 'A', x: 5 })!;
+  s().updateNote(id, { heading: 'B' });
+  s().setView({ offsetX: -10, offsetY: 4, zoom: 1.5 });
+  assert.equal(s().save, 'dirty');
+  assert.equal(s().ws!.notes[id]!.heading, 'B');
+  assert.equal(f.calls.length, 0);
 
   t.mock.timers.tick(599);
-  assert.equal(f.saves.length, 0);
+  assert.equal(f.calls.length, 0);
   t.mock.timers.tick(1);
-  await store.getState().flush();
+  await s().flush();
 
-  assert.equal(f.saves.length, 1);
-  const { board } = f.saves[0]!;
-  assert.equal(board.notes[id]!.heading, 'B');
-  assert.equal(board.nextNoteId, 2);
-  assert.deepEqual([board.boardOffsetX, board.boardZoom], [-10, 1.5]);
-  assert.equal(store.getState().save, 'saved');
+  assert.equal(f.calls.length, 1);
+  assert.deepEqual(f.calls[0]!.changes.map((c) => c.op), ['createNote', 'setView']);
+  assert.equal(serverNotes()[id]!.heading, 'B');
+  assert.equal(core.getWorkspaceById('ws_1').boardZoom, 1.5);
+  assert.equal(s().save, 'saved');
+
+  // a second flush with nothing new sends nothing
+  await s().flush();
+  assert.equal(f.calls.length, 1);
 });
 
-test('note ids come from the workspace counter; delete removes connections to the note', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
-  const a = store.getState().addNote()!;
-  const b = store.getState().addNote()!;
-  assert.deepEqual([a, b], ['n_1', 'n_2']);
-  assert.ok(store.getState().ws!.notes.n_2!.zIndex > store.getState().ws!.notes.n_1!.zIndex);
+test('only the changed fields are sent: a later edit patches, it does not resend the note', async () => {
+  const { f, s } = make();
+  await s().init();
+  const id = s().addNote({ heading: 'A' })!;
+  await s().flush();
+  s().updateNote(id, { x: 42 });
+  await s().flush();
+  assert.deepEqual(f.calls[1]!.changes, [{ op: 'patchNote', id, fields: { x: 42 } }]);
+});
 
-  store.setState((s) => ({
-    ws: { ...s.ws!, connections: { c_1: { id: 'c_1', fromNote: a, fromSide: 'right', toNote: b, toSide: 'left' } } },
-  }));
-  store.getState().deleteNote(b);
-  assert.deepEqual(Object.keys(store.getState().ws!.notes), ['n_1']);
-  assert.deepEqual(Object.keys(store.getState().ws!.connections), []);
+test('THE BUG FIX: a note Claude adds while the tab is open is NOT erased by the next browser save, and appears', async () => {
+  const { s } = make();
+  await s().init();
+  const mine = s().addNote({ heading: 'mine' })!;
+
+  const theirs = claude.createNote(undefined, { heading: 'added by Claude over MCP' }); // browser has not seen it
+  await s().flush(); // the user's next edit is saved
+
+  assert.deepEqual(Object.keys(serverNotes()).sort(), [mine, theirs.id].sort()); // nothing erased on the server
+  assert.equal(s().ws!.notes[theirs.id]!.heading, 'added by Claude over MCP'); // and it shows up here
+});
+
+test('Claude deleting or editing notes is honoured too; our untouched view follows', async () => {
+  const { s } = make();
+  const a = claude.createNote(undefined, { heading: 'a' });
+  const b = claude.createNote(undefined, { heading: 'b' });
+  await s().init();
+
+  claude.deleteNote(undefined, b.id);
+  claude.updateNote(undefined, a.id, { heading: 'a (edited by Claude)' });
+  await s().refresh();
+  assert.deepEqual(Object.keys(s().ws!.notes), [a.id]);
+  assert.equal(s().ws!.notes[a.id]!.heading, 'a (edited by Claude)');
+  assert.equal(s().save, 'saved');
+});
+
+test('refresh merges field by field with unsaved local edits (we move a note while Claude renames it)', async () => {
+  const { s } = make();
+  const a = claude.createNote(undefined, { heading: 'orig', x: 0 });
+  await s().init();
+
+  s().updateNote(a.id, { x: 99 }); // unsaved local edit
+  claude.updateNote(undefined, a.id, { heading: 'renamed by Claude' });
+  await s().refresh();
+  const n = s().ws!.notes[a.id]!;
+  assert.deepEqual([n.x, n.heading], [99, 'renamed by Claude']);
+  assert.equal(s().save, 'dirty'); // our move is still to be saved
+
+  await s().flush();
+  const saved = serverNotes()[a.id]!;
+  assert.deepEqual([saved.x, saved.heading], [99, 'renamed by Claude']); // both survive on the server
+});
+
+test('a stale poll response that arrives after a save is discarded (no regression)', async () => {
+  const { f, s } = make();
+  await s().init();
+  const id = s().addNote({ heading: 'v1' })!;
+  await s().flush();
+
+  let release!: () => void;
+  f.state.hold = new Promise<void>((r) => (release = r));
+  const staleRefresh = s().refresh(); // fetched the server copy, but its response is held back
+
+  s().updateNote(id, { heading: 'v2' });
+  f.state.hold = null;
+  await s().flush(); // v2 saved while the old poll is still in flight
+  release();
+  await staleRefresh;
+
+  assert.equal(s().ws!.notes[id]!.heading, 'v2');
+  assert.equal(serverNotes()[id]!.heading, 'v2');
+});
+
+test('ids are generated here and never collide with ids Claude creates (n_1, n_2, ...)', async () => {
+  const { s } = make({ idGen: randomId });
+  await s().init();
+  const mine = s().addNote()!;
+  assert.match(mine, /^n_[0-9a-z]{7}$/);
+  const theirs = claude.createNote(undefined, { heading: 'x' });
+  assert.notEqual(mine, theirs.id);
+  assert.notEqual(randomId('n'), randomId('n'));
+});
+
+test('delete removes connections to the note; the server gets the deletes', async () => {
+  const { f, s } = make();
+  await s().init();
+  const a = s().addNote()!;
+  const b = s().addNote()!;
+  s().addConnection({ fromNote: a, fromSide: 'right', toNote: b, toSide: 'left' });
+  await s().flush();
+  assert.equal(Object.keys(core.getWorkspaceById('ws_1').connections).length, 1);
+
+  s().deleteNote(b);
+  assert.deepEqual(Object.keys(s().ws!.connections), []);
+  await s().flush();
+  assert.deepEqual(f.calls.at(-1)!.changes.map((c) => c.op), ['deleteConnection', 'deleteNote']);
+  assert.deepEqual(Object.keys(serverNotes()), [a]);
+  assert.deepEqual(Object.keys(core.getWorkspaceById('ws_1').connections), []);
 });
 
 test('a failed save shows an error, keeps the edits, and retries until it works', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const f = fakeApi();
+  const { f, s } = make({ saveDelayMs: 100, retryDelayMs: 1000 });
   f.state.failSaves = 1;
-  const store = createBoardStore({ api: f.api, saveDelayMs: 100, retryDelayMs: 1000 });
-  await store.getState().init();
-  store.getState().addNote({ heading: 'keep me' });
+  await s().init();
+  s().addNote({ heading: 'keep me' });
 
   t.mock.timers.tick(100);
-  await store.getState().flush().catch(() => {});
-  assert.equal(store.getState().save, 'error');
-  assert.match(store.getState().notice!, /Could not save: boom/);
-  assert.equal(f.saves.length, 0);
+  await s().flush().catch(() => {});
+  assert.equal(s().save, 'error');
+  assert.match(s().notice!, /Could not save: boom/);
+  assert.equal(f.calls.length, 0);
 
   t.mock.timers.tick(1000); // retry timer
   await new Promise((r) => setImmediate(r));
-  await store.getState().flush();
-  assert.equal(f.saves.length, 1);
-  assert.equal(store.getState().save, 'saved');
-  assert.equal(Object.values(f.saves[0]!.board.notes)[0]!.heading, 'keep me');
+  await s().flush();
+  assert.equal(f.calls.length, 1);
+  assert.equal(s().save, 'saved');
+  assert.equal(Object.values(serverNotes())[0]!.heading, 'keep me');
+});
+
+test('a retried batch cannot duplicate anything (ops are idempotent)', async () => {
+  const { s } = make();
+  await s().init();
+  const id = s().addNote({ heading: 'once' })!;
+  const ws = s().ws!;
+  const op: Change = { op: 'createNote', note: { id, heading: 'once' } };
+  core.applyChanges(undefined, { changes: [op] }); // first attempt reached the server, reply lost
+  assert.ok(ws);
+  await s().flush(); // client retries the same create
+  assert.equal(Object.keys(serverNotes()).length, 1);
 });
 
 test('edits made while a save is in flight are saved afterwards', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api, saveDelayMs: 100 });
-  await store.getState().init();
-  const id = store.getState().addNote({ heading: 'one' })!;
-  const first = store.getState().flush();
-  store.getState().updateNote(id, { heading: 'two' }); // while the first PUT is pending
+  const { f, s } = make({ saveDelayMs: 100 });
+  await s().init();
+  const id = s().addNote({ heading: 'one' })!;
+  const first = s().flush();
+  s().updateNote(id, { heading: 'two' }); // while the first request is pending
   await first;
-  assert.equal(store.getState().save, 'dirty');
+  assert.equal(s().save, 'dirty');
+  assert.equal(s().ws!.notes[id]!.heading, 'two'); // the in-flight reply did not clobber it
   t.mock.timers.tick(100);
-  await store.getState().flush();
-  assert.equal(f.saves.length, 2);
-  assert.equal(f.saves[1]!.board.notes[id]!.heading, 'two');
-  assert.equal(store.getState().save, 'saved');
+  await s().flush();
+  assert.equal(f.calls.length, 2);
+  assert.equal(serverNotes()[id]!.heading, 'two');
+  assert.equal(s().save, 'saved');
 });
 
 test('switching workspace saves pending edits first, then loads and activates the other one', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
-  store.getState().addNote({ heading: 'in one' });
-  await store.getState().switchWorkspace('ws_2');
-  assert.equal(f.saves.length, 1);
-  assert.equal(f.saves[0]!.id, 'ws_1');
-  assert.equal(store.getState().currentWsId, 'ws_2');
-  assert.ok(f.calls.includes('activate ws_2'));
+  const { f, s } = make();
+  core.createWorkspace('Two');
+  await s().init();
+  s().addNote({ heading: 'in one' });
+  await s().switchWorkspace('ws_2');
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0]!.id, 'ws_1');
+  assert.equal(s().currentWsId, 'ws_2');
+  assert.ok(f.log.includes('activate ws_2'));
 });
 
 test('create / rename / delete workspace keep the list in sync (rename reaches the server)', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
+  const { s } = make();
+  await s().init();
+  await s().createWorkspace('Three');
+  assert.equal(s().ws!.name, 'Three');
+  assert.equal(s().workspaces.length, 2);
 
-  await store.getState().createWorkspace('Three');
-  assert.equal(store.getState().ws!.name, 'Three');
-  assert.equal(store.getState().workspaces.length, 3);
+  await s().renameWorkspace('ws_2', ' Drei ');
+  assert.equal(core.getWorkspaceById('ws_2').name, 'Drei');
+  assert.equal(s().workspaces.find((w) => w.id === 'ws_2')!.name, 'Drei');
 
-  await store.getState().renameWorkspace('ws_3', ' Drei ');
-  assert.equal(f.db.get('ws_3')!.name, 'Drei'); // the legacy UI never did this
-  assert.equal(store.getState().workspaces.find((w) => w.id === 'ws_3')!.name, 'Drei');
-  assert.equal(store.getState().ws!.name, 'Drei');
-
-  await store.getState().deleteWorkspace('ws_3');
-  assert.equal(store.getState().workspaces.length, 2);
-  assert.equal(store.getState().currentWsId, 'ws_1');
+  await s().deleteWorkspace('ws_2');
+  assert.equal(s().workspaces.length, 1);
+  assert.equal(s().currentWsId, 'ws_1');
 });
 
-test('refresh picks up server-side changes only when nothing is unsaved', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
-
-  f.db.get('ws_1')!.notes = { n_9: { id: 'n_9', heading: 'from MCP' } as any };
-  await store.getState().refresh();
-  assert.equal(store.getState().ws!.notes.n_9!.heading, 'from MCP');
-
-  store.getState().addNote({ heading: 'local' });
-  f.db.get('ws_1')!.notes = {};
-  await store.getState().refresh(); // dirty -> must not clobber local edits
-  assert.ok(store.getState().ws!.notes.n_9);
-});
-
-test('server down at start: falls back to the cached board and saves it when the server returns', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const storage = memoryStorage();
-  const f = fakeApi();
-  const online = createBoardStore({ api: f.api, storage });
-  await online.getState().init();
-  online.getState().addNote({ heading: 'cached' });
-  await online.getState().flush();
-
-  f.state.down = true;
-  const offline = createBoardStore({ api: f.api, storage, retryDelayMs: 1000 });
-  await offline.getState().init();
-  assert.equal(offline.getState().phase, 'ready');
-  assert.equal(offline.getState().offline, true);
-  assert.equal(Object.values(offline.getState().ws!.notes)[0]!.heading, 'cached');
-
-  f.state.down = false;
-  f.saves.length = 0;
-  t.mock.timers.tick(1000);
-  await new Promise((r) => setImmediate(r));
-  await offline.getState().flush();
-  assert.equal(f.saves.length, 1);
-  assert.equal(offline.getState().offline, false);
-});
-
-test('server down and nothing cached: error phase', async () => {
-  const f = fakeApi();
-  f.state.down = true;
-  const store = createBoardStore({ api: f.api, storage: memoryStorage() });
-  await store.getState().init();
-  assert.equal(store.getState().phase, 'error');
-  assert.match(store.getState().error!, /network down/);
-});
-
-test('connections: add (with dedupe and validation), arrows, delete', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
-  const a = store.getState().addNote()!;
-  const b = store.getState().addNote()!;
+test('connections: add (dedupe, validation), arrows, delete', async () => {
+  const { s } = make();
+  await s().init();
+  const a = s().addNote()!;
+  const b = s().addNote()!;
   const link = { fromNote: a, fromSide: 'right', toNote: b, toSide: 'left' } as const;
 
-  const id = store.getState().addConnection(link);
-  assert.equal(id, 'c_1');
-  assert.equal(store.getState().ws!.connections.c_1!.arrows, 'none');
-  assert.equal(store.getState().ws!.nextConnectionId, 2);
+  const id = s().addConnection(link)!;
+  assert.ok(id);
+  assert.equal(s().ws!.connections[id]!.arrows, 'none');
+  assert.equal(s().addConnection(link), null); // duplicate
+  assert.equal(s().addConnection({ fromNote: b, fromSide: 'left', toNote: a, toSide: 'right' }), null); // reverse duplicate
+  assert.equal(s().addConnection({ ...link, toNote: a }), null); // to itself
+  assert.equal(s().addConnection({ ...link, toNote: 'n_99' }), null); // missing note
 
-  assert.equal(store.getState().addConnection(link), null); // duplicate
-  assert.equal(store.getState().addConnection({ fromNote: b, fromSide: 'left', toNote: a, toSide: 'right' }), null); // reverse duplicate
-  assert.equal(store.getState().addConnection({ ...link, toNote: a }), null); // to itself
-  assert.equal(store.getState().addConnection({ ...link, toNote: 'n_99' }), null); // missing note
+  s().setConnectionArrows(id, 'both');
+  await s().flush();
+  assert.equal(core.getWorkspaceById('ws_1').connections[id]!.arrows, 'both');
 
-  store.getState().setConnectionArrows('c_1', 'both');
-  assert.equal(store.getState().ws!.connections.c_1!.arrows, 'both');
-
-  await store.getState().flush();
-  assert.equal(f.saves.at(-1)!.board.connections.c_1!.arrows, 'both');
-
-  store.getState().deleteConnection('c_1');
-  assert.deepEqual(Object.keys(store.getState().ws!.connections), []);
+  s().deleteConnection(id);
+  await s().flush();
+  assert.deepEqual(Object.keys(core.getWorkspaceById('ws_1').connections), []);
 });
 
-test('groups: add, update, move with notes, ungroup on delete', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
+test('groups: add, update, move with notes, ungroup on delete (all reach the server)', async () => {
+  const { s } = make();
+  await s().init();
+  const g = s().addGroup({ x: 100, y: 100, w: 460, h: 320 })!;
+  s().updateGroup(g, { name: 'Ideas', minimized: true });
+  const inside = s().addNote({ x: 120, y: 120, w: 200, h: 100 })!;
+  const outside = s().addNote({ x: 900, y: 900 })!;
+  s().setNoteGroup(inside, g);
+  assert.equal(s().ws!.notes[inside]!.x, 120); // already inside: not moved
+  s().setNoteGroup(outside, g);
+  assert.deepEqual([s().ws!.notes[outside]!.x, s().ws!.notes[outside]!.y], [140, 140]); // moved to the padded top-left
 
-  const g = store.getState().addGroup({ x: 100, y: 100, w: 460, h: 320 })!;
-  assert.equal(g, 'g_1');
-  assert.equal(store.getState().ws!.nextGroupId, 2);
-  assert.equal(store.getState().addGroup()!, 'g_2');
+  s().moveGroup(g, { x: 300, y: 250 }, { [inside]: { dx: 20, dy: 20 }, ghost: { dx: 0, dy: 0 } });
+  assert.deepEqual([s().ws!.notes[inside]!.x, s().ws!.notes[inside]!.y], [320, 270]);
+  s().setNoteGroup(inside, 'g_404'); // unknown group: ignored
+  assert.equal(s().ws!.notes[inside]!.groupId, g);
 
-  store.getState().updateGroup(g, { name: 'Ideas', minimized: true });
-  assert.deepEqual([store.getState().ws!.groups.g_1!.name, store.getState().ws!.groups.g_1!.minimized], ['Ideas', true]);
+  await s().flush();
+  const saved = core.getWorkspaceById('ws_1');
+  assert.deepEqual([saved.groups[g]!.name, saved.groups[g]!.minimized, saved.groups[g]!.x], ['Ideas', true, 300]);
+  assert.deepEqual([saved.notes[inside]!.groupId, saved.notes[inside]!.x], [g, 320]);
 
-  const inside = store.getState().addNote({ x: 120, y: 120, w: 200, h: 100 })!;
-  const outside = store.getState().addNote({ x: 900, y: 900 })!;
-  store.getState().setNoteGroup(inside, g);
-  assert.deepEqual([store.getState().ws!.notes[inside]!.x, store.getState().ws!.notes[inside]!.groupId], [120, g]); // already inside: not moved
-  store.getState().setNoteGroup(outside, g);
-  assert.deepEqual(
-    [store.getState().ws!.notes[outside]!.x, store.getState().ws!.notes[outside]!.y],
-    [140, 140], // moved to the padded top-left
-  );
-
-  store.getState().moveGroup(g, { x: 300, y: 250 }, { [inside]: { dx: 20, dy: 20 }, ghost: { dx: 0, dy: 0 } });
-  assert.deepEqual([store.getState().ws!.groups.g_1!.x, store.getState().ws!.groups.g_1!.y], [300, 250]);
-  assert.deepEqual([store.getState().ws!.notes[inside]!.x, store.getState().ws!.notes[inside]!.y], [320, 270]);
-
-  store.getState().setNoteGroup(inside, null);
-  assert.equal(store.getState().ws!.notes[inside]!.groupId, null);
-  store.getState().setNoteGroup(inside, 'g_404'); // unknown group: ignored
-  assert.equal(store.getState().ws!.notes[inside]!.groupId, null);
-
-  store.getState().deleteGroup(g);
-  assert.deepEqual(Object.keys(store.getState().ws!.groups), ['g_2']);
-  assert.equal(store.getState().ws!.notes[outside]!.groupId, null); // ungrouped, not deleted
-  assert.ok(store.getState().ws!.notes[outside]);
+  s().deleteGroup(g);
+  await s().flush();
+  const after = core.getWorkspaceById('ws_1');
+  assert.deepEqual(Object.keys(after.groups), []);
+  assert.equal(after.notes[outside]!.groupId, null); // ungrouped, not deleted
 });
 
 test('duplicateNote copies content 30px away, ungrouped, with a fresh id', async () => {
-  const f = fakeApi();
-  const store = createBoardStore({ api: f.api });
-  await store.getState().init();
-  const id = store.getState().addNote({ heading: 'Plan', x: 100, y: 100, labels: ['a'], lines: [{ type: 'check', text: 'x', checked: true }], groupId: 'g_1' })!;
-  const copy = store.getState().duplicateNote(id)!;
-  const n = store.getState().ws!.notes[copy]!;
+  const { s } = make();
+  await s().init();
+  const id = s().addNote({ heading: 'Plan', x: 100, y: 100, labels: ['a'], lines: [{ type: 'check', text: 'x', checked: true }], groupId: 'g_1' })!;
+  const copy = s().duplicateNote(id)!;
+  const n = s().ws!.notes[copy]!;
   assert.notEqual(copy, id);
   assert.deepEqual([n.heading, n.x, n.y, n.groupId, n.labels], ['Plan (copy)', 130, 130, null, ['a']]);
-  assert.notEqual(n.lines, store.getState().ws!.notes[id]!.lines); // deep copy
-  assert.equal(store.getState().duplicateNote('n_404'), null);
+  assert.notEqual(n.lines, s().ws!.notes[id]!.lines); // deep copy
+  assert.equal(s().duplicateNote('n_404'), null);
+});
+
+test('server down at start: falls back to the cached board and sends the unsaved edits when it returns', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const storage = memoryStorage();
+  const online = make({ storage });
+  await online.s().init();
+  online.s().addNote({ heading: 'cached' });
+  await online.s().flush();
+  online.s().addNote({ heading: 'unsaved edit' }); // never reaches the server
+  await online.s().flush().catch(() => {});
+  online.f.state.down = true;
+  online.s().addNote({ heading: 'made while offline' });
+  await online.s().flush();
+  assert.equal(online.s().save, 'error');
+
+  const f = fakeApi();
+  f.state.down = true;
+  const offline = createBoardStore({ api: f.api, storage, idGen, retryDelayMs: 1000 });
+  await offline.getState().init();
+  assert.equal(offline.getState().phase, 'ready');
+  assert.equal(offline.getState().offline, true);
+  assert.equal(Object.values(offline.getState().ws!.notes).some((n) => n.heading === 'made while offline'), true);
+
+  f.state.down = false;
+  t.mock.timers.tick(1000);
+  await new Promise((r) => setImmediate(r));
+  await offline.getState().flush();
+  assert.equal(offline.getState().offline, false);
+  assert.equal(Object.values(serverNotes()).some((n) => n.heading === 'made while offline'), true);
+});
+
+test('server down and nothing cached: error phase', async () => {
+  const { f, s } = make({ storage: memoryStorage() });
+  f.state.down = true;
+  await s().init();
+  assert.equal(s().phase, 'error');
+  assert.match(s().error!, /network down/);
 });

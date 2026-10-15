@@ -66,3 +66,22 @@ export interface DarknotesData {
   currentWorkspaceId: string;
   nextWorkspaceId: number;
 }
+
+type NoteFields = Omit<Note, 'id'>;
+type GroupFields = Omit<Group, 'id'>;
+
+/**
+ * One edit to a workspace, as sent by the browser (POST /workspaces/:id/changes). Defined here, as plain
+ * types, so client code can use it without importing the Zod schemas; schemas.ts checks the two agree.
+ */
+export type Change =
+  | { op: 'createNote'; note: { id: string } & Partial<NoteFields> }
+  | { op: 'patchNote'; id: string; fields: Partial<NoteFields> }
+  | { op: 'deleteNote'; id: string }
+  | { op: 'createGroup'; group: { id: string } & Partial<GroupFields> }
+  | { op: 'patchGroup'; id: string; fields: Partial<GroupFields> }
+  | { op: 'deleteGroup'; id: string }
+  | { op: 'createConnection'; connection: Connection }
+  | { op: 'patchConnection'; id: string; fields: { arrows?: Arrows } }
+  | { op: 'deleteConnection'; id: string }
+  | { op: 'setView'; fields: Partial<Pick<Workspace, 'boardOffsetX' | 'boardOffsetY' | 'boardZoom'>> };

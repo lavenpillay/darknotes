@@ -8,6 +8,9 @@ import { ConnectionMenu } from './ConnectionMenu';
 import { NoteContextMenu } from './NoteContextMenu';
 import { Toolbar } from './Toolbar';
 
+/** How often the open tab merges in changes made by other writers. */
+const POLL_MS = 4000;
+
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
 
@@ -30,6 +33,9 @@ export function BoardApp() {
     window.addEventListener('pagehide', onFlush);
     window.addEventListener('online', onVisible);
 
+    // Live-merge changes made elsewhere (Claude over MCP, another tab). Skipped while the tab is hidden.
+    const poll = setInterval(() => document.visibilityState === 'visible' && void boardStore.getState().refresh(), POLL_MS);
+
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || typing(e.target)) return;
       const ws = boardStore.getState().ws;
@@ -46,6 +52,7 @@ export function BoardApp() {
     window.addEventListener('keydown', onKey);
 
     return () => {
+      clearInterval(poll);
       document.removeEventListener('visibilitychange', onVisible);
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', onFlush);

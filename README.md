@@ -167,7 +167,8 @@ Base URL: `http://localhost:3737/api`. Errors are JSON: `{ "error": "message" }`
 | PATCH | `/workspaces/:id` | Update workspace (name, board offset, zoom) |
 | DELETE | `/workspaces/:id` | Delete workspace |
 | POST | `/workspaces/:id/activate` | Make this the current workspace |
-| PUT | `/workspaces/:id/board` | Save full board state |
+| POST | `/workspaces/:id/changes` | Apply incremental edits (`{ "changes": [...] }`): create/patch/delete notes, groups and connections, set the view. Idempotent and safe alongside other writers; returns the resulting workspace |
+| PUT | `/workspaces/:id/board` | Replace the whole board. **Legacy UI only**: it overwrites anything added elsewhere in the meantime |
 | GET | `/workspaces/:id/notes` | List notes (`?search=`, `?label=`, `?groupId=`) |
 | POST | `/workspaces/:id/notes` | Create note |
 | GET | `/workspaces/:id/notes/:nid` | Get note |
@@ -211,9 +212,11 @@ New behaviour goes into `packages/core/src/service.ts`; the REST routes (`apps/s
 
 ### Web app notes (`apps/web`)
 
-- The server is the source of truth. Edits show instantly and are saved to the server after a short pause (600 ms); the toolbar shows *Saved / Unsaved changes / Saving… / Not saved*. A failed save is retried every 5 seconds and nothing is discarded.
+- The server is the source of truth. Edits show instantly and are saved after a short pause (600 ms) as **incremental changes**, only what differs from the last server state the tab saw; the toolbar shows *Saved / Unsaved changes / Saving… / Not saved*. A failed save is retried every 5 seconds and nothing is discarded.
+- **Safe with Claude editing at the same time.** The open tab merges the server's state in every 4 seconds (while visible) and after each save, so notes, groups and connections added or changed over MCP appear, and are never erased by a browser save. Edits to different notes, or different fields of one note (position vs heading), from both sides are both kept. If both sides edit the *same* field of the same note between syncs, the browser's value wins until saved, then the last write wins. A note's lines are replaced as a whole, so concurrent edits to one note's text can overwrite each other. Deleting something on one side beats editing it on the other.
+- Ids for things created in the browser are random (`n_k3f9a2x`), so they can never collide with ids the server hands out (`n_1`, `n_2`, …).
 - If the server is unreachable at load, the app shows the last copy it cached in the browser (marked *Offline*) and syncs it when the server returns.
-- Workspace names and the workspace list come from the server, so a workspace created or renamed through MCP appears here (and renames made here reach MCP). Switching back to the tab refreshes the board from the server when there are no unsaved changes.
+- Workspace names and the workspace list come from the server, so a workspace created or renamed through MCP appears here (and renames made here reach MCP).
 - Notes: drag anywhere that is not a text field; resize from the corner, right or bottom edge; right-click for Duplicate, Add to / Remove from Group, Delete.
 - Connections: drag from a dot on a note's edge to a dot on another note (it snaps within 30 px); click a line to delete it; right-click a line for arrowheads.
 - Groups: **+ New Group** adds one; drag its header (notes inside move with it), resize from the corner, rename, recolour, minimize to a pill (hides its notes and their connections) or delete (notes are kept).

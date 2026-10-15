@@ -5,6 +5,7 @@ import {
   CorruptDataError,
   DomainError,
   activateWorkspace,
+  applyChanges,
   createConnection,
   createGroup,
   createNote,
@@ -73,9 +74,16 @@ export function createApiRouter(): Router {
   router.post('/workspaces/:wsId/activate', h((req, res) => {
     res.json(activateWorkspace(p(req, 'wsId')));
   }));
+  // Whole-board replace. Kept for the legacy UI; it can overwrite concurrent edits, so new clients use /changes.
   router.put('/workspaces/:wsId/board', h((req, res) => {
     saveBoard(p(req, 'wsId'), req.body);
     res.json({ ok: true });
+  }));
+
+  // Incremental sync: apply only what changed. Safe alongside other writers (MCP, other tabs), unlike PUT /board.
+  router.post('/workspaces/:wsId/changes', h((req, res) => {
+    const { applied, skipped, workspace } = applyChanges(p(req, 'wsId'), req.body);
+    res.json({ ok: true, applied, skipped, workspace });
   }));
 
   // Notes

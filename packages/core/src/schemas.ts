@@ -97,3 +97,34 @@ export type GroupPatch = z.input<typeof groupPatchSchema>;
 export type ConnectionInput = z.input<typeof connectionInputSchema>;
 export type WorkspacePatch = z.input<typeof workspacePatchSchema>;
 export type BoardInput = z.input<typeof boardSchema>;
+
+// ─── incremental changes (browser sync) ──────────────────────
+
+const id = z.string().min(1);
+const viewFields = z.object({ boardOffsetX: z.number(), boardOffsetY: z.number(), boardZoom: z.number() }).partial();
+
+/**
+ * One edit to a workspace. The browser sends only what it changed, so edits made elsewhere (MCP, another tab)
+ * to other notes or other fields are never overwritten. Every op is idempotent: replaying a batch is safe.
+ */
+export const changeSchema = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('createNote'), note: noteInputSchema.extend({ id }) }),
+  z.object({ op: z.literal('patchNote'), id, fields: notePatchSchema }),
+  z.object({ op: z.literal('deleteNote'), id }),
+  z.object({ op: z.literal('createGroup'), group: groupInputSchema.extend({ id }) }),
+  z.object({ op: z.literal('patchGroup'), id, fields: groupPatchSchema }),
+  z.object({ op: z.literal('deleteGroup'), id }),
+  z.object({ op: z.literal('createConnection'), connection: connectionInputSchema.extend({ id }) }),
+  z.object({ op: z.literal('patchConnection'), id, fields: z.object({ arrows: arrowsSchema }).partial() }),
+  z.object({ op: z.literal('deleteConnection'), id }),
+  z.object({ op: z.literal('setView'), fields: viewFields }),
+]);
+
+export const changesSchema = z.object({ changes: z.array(changeSchema).max(5000) });
+
+import type { Change } from './types';
+export type { Change };
+
+// Compile-time check that the plain `Change` type is accepted by the schema.
+const _changeTypeMatchesSchema = (c: Change): z.input<typeof changeSchema> => c;
+void _changeTypeMatchesSchema;

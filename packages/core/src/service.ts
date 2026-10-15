@@ -10,6 +10,7 @@
 import { ConflictError, NotFoundError, ValidationError } from './errors';
 import {
   boardSchema,
+  changesSchema,
   connectionInputSchema,
   groupInputSchema,
   groupPatchSchema,
@@ -19,6 +20,7 @@ import {
   parse,
   workspacePatchSchema,
   type BoardInput,
+  type Change,
   type ConnectionInput,
   type GroupInput,
   type GroupPatch,
@@ -203,39 +205,47 @@ export function createNote(wsId: string | undefined, input: NoteInput): Note {
     const ws = getWs(data, wsId);
     assertGroupExists(ws, i.groupId);
     const id = nextId('n', ws.nextNoteId++);
-    const note: Note = {
-      id,
-      heading: i.heading ?? 'New Note',
-      lines: (i.lines ?? (i.body ? bodyToLines(i.body) : [{ type: 'text', text: '' }])) as Line[],
-      labels: i.labels ?? [],
-      x: i.x ?? 100,
-      y: i.y ?? 100,
-      w: i.w ?? 300,
-      h: i.h ?? 220,
-      bgColor: i.bgColor ?? '#FFF9C4',
-      fontColor: i.fontColor ?? '#1a1612',
-      fontSize: i.fontSize ?? 14,
-      headingFont: i.headingFont ?? 'Playfair Display',
-      headingSize: i.headingSize ?? 17,
-      groupId: i.groupId ?? null,
-      zIndex: i.zIndex ?? 10,
-    };
+    const note = buildNote(id, i);
     ws.notes[id] = note;
     return note;
   });
 }
 
+function buildNote(id: string, i: ReturnType<typeof noteInputSchema.parse>): Note {
+  return {
+    id,
+    heading: i.heading ?? 'New Note',
+    lines: (i.lines ?? (i.body ? bodyToLines(i.body) : [{ type: 'text', text: '' }])) as Line[],
+    labels: i.labels ?? [],
+    x: i.x ?? 100,
+    y: i.y ?? 100,
+    w: i.w ?? 300,
+    h: i.h ?? 220,
+    bgColor: i.bgColor ?? '#FFF9C4',
+    fontColor: i.fontColor ?? '#1a1612',
+    fontSize: i.fontSize ?? 14,
+    headingFont: i.headingFont ?? 'Playfair Display',
+    headingSize: i.headingSize ?? 17,
+    groupId: i.groupId ?? null,
+    zIndex: i.zIndex ?? 10,
+  };
+}
+
+function applyNotePatch(note: Note, { body, ...p }: ReturnType<typeof notePatchSchema.parse>) {
+  for (const [key, value] of Object.entries(p)) {
+    if (value !== undefined) (note as unknown as Record<string, unknown>)[key] = value;
+  }
+  // `body` replaces everything, mirroring the legacy tool (it wins over `lines`).
+  if (body !== undefined) note.lines = bodyToLines(body);
+}
+
 export function updateNote(wsId: string | undefined, noteId: string, patch: NotePatch): Note {
-  const { body, ...p } = parse(notePatchSchema, patch);
+  const p = parse(notePatchSchema, patch);
   return mutate((data) => {
     const ws = getWs(data, wsId);
     const note = getNoteIn(ws, noteId);
     assertGroupExists(ws, p.groupId);
-    for (const [key, value] of Object.entries(p)) {
-      if (value !== undefined) (note as unknown as Record<string, unknown>)[key] = value;
-    }
-    // `body` replaces everything, mirroring the legacy tool (it wins over `lines`).
-    if (body !== undefined) note.lines = bodyToLines(body);
+    applyNotePatch(note, p);
     return note;
   });
 }
@@ -310,19 +320,23 @@ export function createGroup(wsId: string | undefined, input: GroupInput): Group 
   return mutate((data) => {
     const ws = getWs(data, wsId);
     const id = nextId('g', ws.nextGroupId++);
-    const group: Group = {
-      id,
-      name: i.name ?? 'New Group',
-      x: i.x ?? 60,
-      y: i.y ?? 60,
-      w: i.w ?? 460,
-      h: i.h ?? 320,
-      color: i.color ?? 'rgba(196,82,42,0.08)',
-      minimized: i.minimized ?? false,
-    };
+    const group = buildGroup(id, i);
     ws.groups[id] = group;
     return group;
   });
+}
+
+function buildGroup(id: string, i: ReturnType<typeof groupInputSchema.parse>): Group {
+  return {
+    id,
+    name: i.name ?? 'New Group',
+    x: i.x ?? 60,
+    y: i.y ?? 60,
+    w: i.w ?? 460,
+    h: i.h ?? 320,
+    color: i.color ?? 'rgba(196,82,42,0.08)',
+    minimized: i.minimized ?? false,
+  };
 }
 
 export function updateGroup(wsId: string | undefined, groupId: string, patch: GroupPatch): Group {
@@ -407,4 +421,104 @@ export function searchNotes(query: string): SearchHit[] {
     }
   }
   return hits;
+}
+
+// ─── incremental changes ─────────────────────────────────────
+
+export interface ChangeResult {
+  /** Ops that changed something. */
+  applied: number;
+  /** Ops that were safely ignored, e.g. a patch to a note someone else deleted. */
+  skipped: Array<{ index: number; op: string; reason: string }>;
+}
+
+/**
+ * Apply a batch of edits to one workspace atomically (one read-modify-write).
+ *
+ * Unlike saveBoard, this never replaces whole collections, so it cannot erase notes, groups or connections
+ * that another client added in the meantime. Ops are idempotent and lenient about concurrent edits:
+ * creating something that already exists, deleting something already gone, or patching something deleted
+ * elsewhere is skipped, not an error. A reference to a group that no longer exists becomes "ungrouped".
+ * Invalid input (schema violations) rejects the whole batch before anything is written.
+ */
+export function applyChanges(wsId: string | undefined, input: { changes: Change[] }): ChangeResult & { workspace: Workspace } {
+  const { changes } = parse(changesSchema, input);
+  return mutate((data) => {
+    const ws = getWs(data, wsId);
+    const result: ChangeResult = { applied: 0, skipped: [] };
+    const skip = (index: number, op: string, reason: string) => void result.skipped.push({ index, op, reason });
+    const knownGroup = (g: string | null | undefined) => (g && ws.groups[g] ? g : null);
+
+    changes.forEach((c, index) => {
+      switch (c.op) {
+        case 'createNote': {
+          if (ws.notes[c.note.id]) return skip(index, c.op, 'exists');
+          const note = buildNote(c.note.id, c.note);
+          note.groupId = knownGroup(note.groupId);
+          ws.notes[note.id] = note;
+          break;
+        }
+        case 'patchNote': {
+          const note = ws.notes[c.id];
+          if (!note) return skip(index, c.op, 'missing');
+          const fields = { ...c.fields };
+          if ('groupId' in fields) fields.groupId = knownGroup(fields.groupId);
+          applyNotePatch(note, fields);
+          break;
+        }
+        case 'deleteNote': {
+          if (!ws.notes[c.id]) return skip(index, c.op, 'missing');
+          delete ws.notes[c.id];
+          for (const [cid, conn] of Object.entries(ws.connections)) {
+            if (conn.fromNote === c.id || conn.toNote === c.id) delete ws.connections[cid];
+          }
+          break;
+        }
+        case 'createGroup': {
+          if (ws.groups[c.group.id]) return skip(index, c.op, 'exists');
+          ws.groups[c.group.id] = buildGroup(c.group.id, c.group);
+          break;
+        }
+        case 'patchGroup': {
+          const group = ws.groups[c.id];
+          if (!group) return skip(index, c.op, 'missing');
+          for (const [key, value] of Object.entries(c.fields)) {
+            if (value !== undefined) (group as unknown as Record<string, unknown>)[key] = value;
+          }
+          break;
+        }
+        case 'deleteGroup': {
+          if (!ws.groups[c.id]) return skip(index, c.op, 'missing');
+          for (const n of Object.values(ws.notes)) if (n.groupId === c.id) n.groupId = null;
+          delete ws.groups[c.id];
+          break;
+        }
+        case 'createConnection': {
+          const { id, ...rest } = c.connection;
+          if (ws.connections[id]) return skip(index, c.op, 'exists');
+          if (!ws.notes[rest.fromNote] || !ws.notes[rest.toNote]) return skip(index, c.op, 'note missing');
+          ws.connections[id] = { id, ...rest };
+          break;
+        }
+        case 'patchConnection': {
+          const conn = ws.connections[c.id];
+          if (!conn) return skip(index, c.op, 'missing');
+          if (c.fields.arrows !== undefined) conn.arrows = c.fields.arrows;
+          break;
+        }
+        case 'deleteConnection': {
+          if (!ws.connections[c.id]) return skip(index, c.op, 'missing');
+          delete ws.connections[c.id];
+          break;
+        }
+        case 'setView': {
+          Object.assign(ws, c.fields);
+          break;
+        }
+      }
+      result.applied++;
+    });
+
+    return { ...result, workspace: ws };
+  });
 }

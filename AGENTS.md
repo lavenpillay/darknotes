@@ -44,7 +44,7 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
   - REST: add the route in `apps/server/src/rest.ts` (400 for invalid and conflict, 404 for not found).
   - Add tests at each layer you touched, and keep `README.md`'s tool/endpoint tables in step.
 - **Data file access** goes only through `readData()` / `writeData()` in `packages/core/src/store.ts`. Never read or write `data.json` directly. The store writes atomically, keeps `data.json.bak`, and throws `CorruptDataError` on invalid JSON instead of resetting.
-- **IDs** come from the per-workspace counters (`ws.nextNoteId`, `nextGroupId`, `nextConnectionId`) and `data.nextWorkspaceId`, with prefixes `n_`, `g_`, `c_`, `ws_`. Use `nextId()`. The store repairs counters on load so ids are never reused.
+- **IDs** created by the server (MCP tools, REST create endpoints) come from the per-workspace counters (`ws.nextNoteId`, `nextGroupId`, `nextConnectionId`) and `data.nextWorkspaceId`, with prefixes `n_`, `g_`, `c_`, `ws_`; use `nextId()`. The browser creates its own ids (random suffix, e.g. `n_k3f9a2x`) so offline and concurrent creates cannot collide. The store repairs counters on load (ignoring non-numeric suffixes), so ids are never reused. Treat ids as opaque strings.
 - **Data model changes** must stay compatible with existing `data.json` files. Add optional fields (like `Connection.arrows`), never rename or remove fields without a migration.
 - **MCP tool names and result shapes are a public contract.** Existing clients depend on them; extend, don't change.
 
@@ -55,6 +55,7 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
 - **Web code must import core types from `@darknotes/core/types`**, never from `@darknotes/core`. The package root pulls in `node:fs` and would break the browser bundle.
 - **Web architecture:** pure logic lives in `apps/web/lib/*.ts` with unit tests (geometry, board maths, store). Components stay thin. The board store (`lib/board-store.ts`) applies edits at once and saves the whole board to the server after a debounce; the server is the source of truth and `localStorage` is only an offline cache. Transient UI state (a connection being dragged, open menus) goes in `lib/ui-store.ts` and is never saved.
 - **Browser-side changes to saved data** go through store actions, not ad hoc `fetch` calls.
+- **Browser saves are incremental, never whole-board.** `lib/sync.ts` diffs the local board against the last server state into `Change` ops (`POST /workspaces/:id/changes`, service function `applyChanges`) and three-way merges the server's reply, so other writers' edits (Claude over MCP, other tabs) are never overwritten. Do not use `saveBoard` / `PUT /board` from new code (it exists for the legacy UI). New saved fields need: the field in `types.ts` and `schemas.ts`, the field list in `lib/sync.ts`, and a test in `sync.test.ts`.
 - **Logging in the server goes to stderr.** In stdio MCP mode stdout is the protocol channel; anything printed there corrupts it.
 - **Security defaults matter:** the server binds `127.0.0.1`, rejects foreign `Host`/`Origin` headers, and supports an optional bearer token. Do not loosen these to make something work; add configuration instead (`apps/server/src/config.ts`).
 

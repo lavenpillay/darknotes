@@ -193,3 +193,25 @@ test('FIX (issue A): a corrupt data file is reported, never silently reset', asy
   await assert.rejects(tool('list_workspaces'), /not valid JSON/);
   assert.equal(fs.readFileSync(file, 'utf8'), '{ not json');
 });
+
+test('api: POST /changes applies incremental edits and returns the merged workspace', async () => {
+  tmp.reset();
+  const mcp = await tool('create_note', { heading: 'added by Claude' }); // the browser has not seen this
+  const r = await api('POST', '/workspaces/ws_1/changes', {
+    changes: [
+      { op: 'createNote', note: { id: 'n_browser', heading: 'mine', x: 5 } },
+      { op: 'patchNote', id: 'n_gone', fields: { x: 1 } },
+    ],
+  });
+  assert.equal(r.status, 200);
+  assert.deepEqual([r.body.ok, r.body.applied, r.body.skipped.length], [true, 1, 1]);
+  assert.deepEqual(Object.keys(r.body.workspace.notes).sort(), [mcp.note.id, 'n_browser'].sort()); // nothing erased
+  assert.equal((await api('GET', '/workspaces/ws_1/notes/n_browser')).body.x, 5);
+});
+
+test('api: POST /changes validates input (400) and unknown workspaces (404)', async () => {
+  tmp.reset();
+  assert.equal((await api('POST', '/workspaces/ws_1/changes', { changes: [{ op: 'explode' }] })).status, 400);
+  assert.equal((await api('POST', '/workspaces/ws_1/changes', {})).status, 400);
+  assert.equal((await api('POST', '/workspaces/ws_404/changes', { changes: [] })).status, 404);
+});

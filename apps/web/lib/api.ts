@@ -1,6 +1,6 @@
 /** Typed client for the DarkNotes REST API (apps/server). Same-origin: Next proxies /api in dev and prod. */
 
-import type { Workspace } from '@darknotes/core/types';
+import type { Change, Workspace } from '@darknotes/core/types';
 
 export interface WorkspaceSummary {
   id: string;
@@ -9,18 +9,12 @@ export interface WorkspaceSummary {
   groupCount: number;
 }
 
-export type BoardPayload = Pick<
-  Workspace,
-  | 'notes'
-  | 'groups'
-  | 'connections'
-  | 'boardOffsetX'
-  | 'boardOffsetY'
-  | 'boardZoom'
-  | 'nextNoteId'
-  | 'nextGroupId'
-  | 'nextConnectionId'
->;
+export interface ChangesResult {
+  applied: number;
+  skipped: Array<{ index: number; op: string; reason: string }>;
+  /** The workspace after the changes, including anything other clients changed. */
+  workspace: Workspace;
+}
 
 export interface Api {
   listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[]; currentWorkspaceId: string }>;
@@ -29,7 +23,8 @@ export interface Api {
   renameWorkspace(id: string, name: string): Promise<Workspace>;
   deleteWorkspace(id: string): Promise<void>;
   activateWorkspace(id: string): Promise<void>;
-  saveBoard(id: string, board: BoardPayload): Promise<void>;
+  /** Send only what changed. Safe alongside other writers (MCP, other tabs). */
+  applyChanges(id: string, changes: Change[]): Promise<ChangesResult>;
 }
 
 export class ApiError extends Error {
@@ -50,7 +45,7 @@ export function createApi(base = '/api', fetchFn: typeof fetch = (...a) => fetch
       headers: payload === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: payload,
       // Lets a save started as the tab closes or reloads still reach the server (browsers cap this at 64KB).
-      keepalive: method === 'PUT' && payload !== undefined && payload.length < 60_000,
+      keepalive: (method === 'PUT' || method === 'POST') && payload !== undefined && payload.length < 60_000,
     });
     const text = await res.text();
     const json = text ? (JSON.parse(text) as unknown) : undefined;
@@ -69,6 +64,6 @@ export function createApi(base = '/api', fetchFn: typeof fetch = (...a) => fetch
     renameWorkspace: (id, name) => call('PATCH', ws(id), { name }),
     deleteWorkspace: async (id) => void (await call('DELETE', ws(id))),
     activateWorkspace: async (id) => void (await call('POST', `${ws(id)}/activate`)),
-    saveBoard: async (id, board) => void (await call('PUT', `${ws(id)}/board`, board)),
+    applyChanges: (id, changes) => call('POST', `${ws(id)}/changes`, { changes }),
   };
 }

@@ -1,14 +1,19 @@
 /**
- * Client state for the board. The server is the source of truth; edits are applied locally at once and
- * saved with a debounce (whole-board PUT, as the API expects). localStorage is only an offline cache.
+ * Client state for the board. The server is the source of truth.
+ *
+ * Edits apply locally at once. They are saved after a short debounce as *incremental changes* (only what
+ * differs from the last server state we saw), and the server's reply is merged back three ways, so notes that
+ * Claude adds over MCP, or another tab adds, are never overwritten and show up here. localStorage is only an
+ * offline cache.
  */
 
 import { createStore } from 'zustand/vanilla';
 import type { Arrows, Connection, Group, Line, Note, Side, Workspace } from '@darknotes/core/types';
+import type { Api, WorkspaceSummary } from './api';
+import type { View } from './board-math';
 import { isDuplicateConnection } from './connection-geometry';
 import { pickGroupColor, placementInGroup } from './group-geometry';
-import type { Api, BoardPayload, WorkspaceSummary } from './api';
-import type { View } from './board-math';
+import { diffToChanges, mergeWorkspace } from './sync';
 
 export type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 export type Phase = 'loading' | 'ready' | 'error';
@@ -31,6 +36,7 @@ export interface BoardState {
   save: SaveState;
 
   init(): Promise<void>;
+  /** Pull in changes made elsewhere (MCP, another tab) and merge them with local edits. */
   refresh(): Promise<void>;
   flush(): Promise<void>;
   clearNotice(): void;
@@ -62,39 +68,43 @@ export interface BoardState {
   setConnectionArrows(id: string, arrows: Arrows): void;
 }
 
+export type IdPrefix = 'n' | 'g' | 'c';
+
 export interface BoardStoreOptions {
   api: Api;
   storage?: StorageLike | null;
   saveDelayMs?: number;
   retryDelayMs?: number;
+  /** New entity ids. Random by default so ids made here can never collide with ones made by Claude or another tab. */
+  idGen?: (prefix: IdPrefix) => string;
 }
 
-const INDEX_KEY = 'darknotes:v2:index';
-const boardKey = (id: string) => `darknotes:v2:board:${id}`;
-
+const INDEX_KEY = 'darknotes:v3:index';
+const boardKey = (id: string) => `darknotes:v3:board:${id}`;
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function boardPayload(ws: Workspace): BoardPayload {
-  return {
-    notes: ws.notes,
-    groups: ws.groups,
-    connections: ws.connections,
-    boardOffsetX: ws.boardOffsetX,
-    boardOffsetY: ws.boardOffsetY,
-    boardZoom: ws.boardZoom,
-    nextNoteId: ws.nextNoteId,
-    nextGroupId: ws.nextGroupId,
-    nextConnectionId: ws.nextConnectionId,
-  };
+const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
+export function randomId(prefix: IdPrefix): string {
+  const bytes = new Uint8Array(7);
+  globalThis.crypto.getRandomValues(bytes);
+  return `${prefix}_${Array.from(bytes, (b) => ALPHABET[b % 36]).join('')}`;
 }
 
 export function defaultLines(): Line[] {
   return [{ type: 'text', text: '' }];
 }
 
-export function createBoardStore({ api, storage = null, saveDelayMs = 600, retryDelayMs = 5000 }: BoardStoreOptions) {
+export function createBoardStore({
+  api,
+  storage = null,
+  saveDelayMs = 600,
+  retryDelayMs = 5000,
+  idGen = randomId,
+}: BoardStoreOptions) {
   let rev = 0; // bumped by every local edit
   let savedRev = 0; // highest rev known to be on the server
+  let epoch = 0; // bumped whenever `base` changes, so stale poll responses can be discarded
+  let base: Workspace | null = null; // the last server state we saw for the current workspace
   let inflight: Promise<void> | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -114,7 +124,15 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
     }
   };
 
-  const store = createStore<BoardState>()((set, get) => {
+  const uniqueId = (prefix: IdPrefix, taken: Record<string, unknown>) => {
+    for (let i = 0; i < 20; i++) {
+      const id = idGen(prefix);
+      if (!(id in taken)) return id;
+    }
+    throw new Error('Could not generate a unique id');
+  };
+
+  return createStore<BoardState>()((set, get) => {
     const schedule = (delay: number) => {
       clearTimeout(timer);
       timer = setTimeout(() => void get().flush(), delay);
@@ -131,10 +149,13 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
       schedule(saveDelayMs);
     };
 
-    const showWorkspace = (ws: Workspace, offline = false) => {
-      set({ ws, currentWsId: ws.id, offline, save: 'saved' });
+    /** Show a workspace freshly loaded from the server. */
+    const adopt = (ws: Workspace, offline = false) => {
+      base = ws;
+      epoch++;
       rev = savedRev = 0;
-      cacheWrite(boardKey(ws.id), ws);
+      set({ ws, currentWsId: ws.id, offline, save: 'saved' });
+      cacheWrite(boardKey(ws.id), { ws, base: ws });
     };
 
     const loadList = async () => {
@@ -158,15 +179,15 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         try {
           const list = await loadList();
           const ws = await api.getWorkspace(list.currentWorkspaceId);
-          showWorkspace(ws);
+          adopt(ws);
           set({ phase: 'ready', error: null });
         } catch (err) {
           const index = cacheRead<{ workspaces: WorkspaceSummary[]; currentWsId: string }>(INDEX_KEY);
-          const cached = index ? cacheRead<Workspace>(boardKey(index.currentWsId)) : null;
-          if (index && cached) {
+          const cached = index ? cacheRead<{ ws: Workspace; base: Workspace }>(boardKey(index.currentWsId)) : null;
+          if (index && cached?.ws && cached.base) {
             set({ workspaces: index.workspaces, phase: 'ready', error: null });
-            showWorkspace(cached, true);
-            // Keep what we have, but treat it as unsaved so it reaches the server once it is back.
+            adopt(cached.ws, true);
+            base = cached.base; // diff against what the server last had, so unsaved edits are sent once it is back
             rev = 1;
             set({ save: 'error' });
             schedule(retryDelayMs);
@@ -176,18 +197,22 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         }
       },
 
-      /** Pull server changes (e.g. made through MCP) when there is nothing unsaved locally. */
       async refresh() {
         const { currentWsId } = get();
-        if (!currentWsId || inflight || rev !== savedRev) return;
-        const startRev = rev;
+        if (!currentWsId || inflight || !base) return;
+        const startEpoch = epoch;
         try {
-          const [, ws] = await Promise.all([loadList(), api.getWorkspace(currentWsId)]);
-          if (rev !== startRev || get().currentWsId !== currentWsId) return; // edited meanwhile
-          if (JSON.stringify(ws) !== JSON.stringify(get().ws)) showWorkspace(ws);
-          set({ offline: false });
+          const [, server] = await Promise.all([loadList(), api.getWorkspace(currentWsId)]);
+          // A save finished (or the workspace changed) while we were fetching: this copy may be stale.
+          if (epoch !== startEpoch || inflight || get().currentWsId !== currentWsId || !base) return;
+          const local = get().ws!;
+          const merged = mergeWorkspace(base, local, server);
+          base = server;
+          epoch++;
+          set({ offline: false, ...(merged !== local ? { ws: merged } : {}) });
+          if (merged !== local) cacheWrite(boardKey(currentWsId), { ws: merged, base });
         } catch {
-          /* stay on what we have */
+          /* stay on what we have; the next poll retries */
         }
       },
 
@@ -196,18 +221,34 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         if (inflight) return inflight; // the running save re-checks rev when it finishes
         if (rev === savedRev) return Promise.resolve();
         const { ws } = get();
-        if (!ws) return Promise.resolve();
+        if (!ws || !base) return Promise.resolve();
 
         const sentRev = rev;
+        const sentWs = ws;
+        const changes = diffToChanges(base, sentWs);
         // Cache before the network call so edits survive a reload even if the save fails. Doing it here
         // (not per edit) keeps drags cheap: this runs once per debounce window, on tab hide, and on retry.
-        cacheWrite(boardKey(ws.id), ws);
+        cacheWrite(boardKey(ws.id), { ws: sentWs, base });
+        if (changes.length === 0) {
+          savedRev = sentRev;
+          set({ save: 'saved' });
+          return Promise.resolve();
+        }
+
         set({ save: 'saving' });
         inflight = (async () => {
           try {
-            await api.saveBoard(ws.id, boardPayload(ws));
+            const result = await api.applyChanges(ws.id, changes);
             savedRev = Math.max(savedRev, sentRev);
-            set({ offline: false });
+            if (get().currentWsId === ws.id) {
+              // Three-way merge: our edits made while the request was in flight stay, everything else
+              // (including notes added elsewhere) comes from the server's reply.
+              const merged = mergeWorkspace(sentWs, get().ws!, result.workspace);
+              base = result.workspace;
+              epoch++;
+              set({ ws: merged, offline: false });
+              cacheWrite(boardKey(ws.id), { ws: merged, base });
+            }
           } catch (err) {
             set({ save: 'error', notice: `Could not save: ${message(err)}` });
             inflight = null;
@@ -232,7 +273,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         await get().flush();
         if (get().save === 'error') return; // do not leave unsaved edits behind
         try {
-          showWorkspace(await api.getWorkspace(id));
+          adopt(await api.getWorkspace(id));
           void api.activateWorkspace(id).catch(() => {});
         } catch (err) {
           set({ notice: `Could not open workspace: ${message(err)}` });
@@ -245,7 +286,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         try {
           const created = await api.createWorkspace(name);
           await loadList();
-          showWorkspace(created);
+          adopt(created);
           void api.activateWorkspace(created.id).catch(() => {});
         } catch (err) {
           set({ notice: `Could not create workspace: ${message(err)}` });
@@ -270,7 +311,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         try {
           await api.deleteWorkspace(id);
           const list = await loadList();
-          if (id === get().currentWsId) showWorkspace(await api.getWorkspace(list.currentWorkspaceId));
+          if (id === get().currentWsId) adopt(await api.getWorkspace(list.currentWorkspaceId));
         } catch (err) {
           set({ notice: `Could not delete workspace: ${message(err)}` });
         }
@@ -279,7 +320,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
       addNote(init = {}) {
         const { ws } = get();
         if (!ws) return null;
-        const id = `n_${ws.nextNoteId}`;
+        const id = uniqueId('n', ws.notes);
         const top = Math.max(9, ...Object.values(ws.notes).map((n) => n.zIndex ?? 10));
         const note: Note = {
           id,
@@ -299,7 +340,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
           zIndex: top + 1,
           ...init,
         };
-        edit((w) => ({ ...w, nextNoteId: w.nextNoteId + 1, notes: { ...w.notes, [id]: note } }));
+        edit((w) => ({ ...w, notes: { ...w.notes, [id]: note } }));
         return id;
       },
 
@@ -339,7 +380,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
       addGroup(init = {}) {
         const { ws } = get();
         if (!ws) return null;
-        const id = `g_${ws.nextGroupId}`;
+        const id = uniqueId('g', ws.groups);
         const group: Group = {
           id,
           name: 'Group',
@@ -351,7 +392,7 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
           minimized: false,
           ...init,
         };
-        edit((w) => ({ ...w, nextGroupId: w.nextGroupId + 1, groups: { ...w.groups, [id]: group } }));
+        edit((w) => ({ ...w, groups: { ...w.groups, [id]: group } }));
         return id;
       },
 
@@ -404,9 +445,9 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
         const { ws } = get();
         if (!ws || c.fromNote === c.toNote || !ws.notes[c.fromNote] || !ws.notes[c.toNote]) return null;
         if (isDuplicateConnection(ws.connections, c)) return null;
-        const id = `c_${ws.nextConnectionId}`;
+        const id = uniqueId('c', ws.connections);
         const conn: Connection = { id, ...c, arrows: 'none' };
-        edit((w) => ({ ...w, nextConnectionId: w.nextConnectionId + 1, connections: { ...w.connections, [id]: conn } }));
+        edit((w) => ({ ...w, connections: { ...w.connections, [id]: conn } }));
         return id;
       },
 
@@ -435,8 +476,6 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
       },
     };
   });
-
-  return store;
 }
 
 export type BoardStore = ReturnType<typeof createBoardStore>;

@@ -213,3 +213,85 @@ test('connections can carry arrows; invalid arrows are rejected; absent stays ab
     ValidationError,
   );
 });
+
+// ── incremental changes ──────────────────────────────────────
+
+test('applyChanges: creates, patches and deletes in one atomic batch', () => {
+  const r = svc.applyChanges(undefined, {
+    changes: [
+      { op: 'createGroup', group: { id: 'g_web1', name: 'G' } },
+      { op: 'createNote', note: { id: 'n_web1', heading: 'A', groupId: 'g_web1' } },
+      { op: 'createNote', note: { id: 'n_web2', heading: 'B' } },
+      { op: 'createConnection', connection: { id: 'c_web1', fromNote: 'n_web1', fromSide: 'right', toNote: 'n_web2', toSide: 'left' } },
+      { op: 'patchNote', id: 'n_web1', fields: { x: 5, lines: [{ type: 'text', text: 'hi' }] } },
+      { op: 'patchConnection', id: 'c_web1', fields: { arrows: 'end' } },
+      { op: 'setView', fields: { boardZoom: 2 } },
+    ],
+  });
+  assert.equal(r.applied, 7);
+  assert.deepEqual(r.skipped, []);
+  const ws = svc.getWorkspaceById();
+  assert.deepEqual([ws.notes.n_web1!.x, ws.notes.n_web1!.groupId, ws.connections.c_web1!.arrows, ws.boardZoom], [5, 'g_web1', 'end', 2]);
+
+  svc.applyChanges(undefined, { changes: [{ op: 'deleteNote', id: 'n_web2' }, { op: 'deleteGroup', id: 'g_web1' }] });
+  const after = svc.getWorkspaceById();
+  assert.deepEqual(Object.keys(after.notes), ['n_web1']);
+  assert.equal(after.notes.n_web1!.groupId, null); // ungrouped, not deleted
+  assert.deepEqual(Object.keys(after.connections), []); // cascade
+});
+
+test('applyChanges never erases what another client added (the whole-board overwrite bug)', () => {
+  const mcpNote = svc.createNote(undefined, { heading: 'added by Claude' }); // n_1
+  const mcpGroup = svc.createGroup(undefined, { name: 'Claude group' });
+  // The browser has never seen those; it only knows its own edit.
+  svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_browser', heading: 'mine' } }] });
+  const ws = svc.getWorkspaceById();
+  assert.deepEqual(Object.keys(ws.notes).sort(), [mcpNote.id, 'n_browser'].sort());
+  assert.ok(ws.groups[mcpGroup.id]);
+});
+
+test('applyChanges only touches the fields in a patch (concurrent edits to other fields survive)', () => {
+  svc.createNote(undefined, { heading: 'orig', x: 10 });
+  svc.updateNote(undefined, 'n_1', { heading: 'renamed by Claude' }); // elsewhere
+  svc.applyChanges(undefined, { changes: [{ op: 'patchNote', id: 'n_1', fields: { x: 99 } }] }); // browser moved it
+  const n = svc.getNote(undefined, 'n_1');
+  assert.deepEqual([n.heading, n.x], ['renamed by Claude', 99]);
+});
+
+test('applyChanges is idempotent and lenient: replays, vanished targets and dangling references are skipped', () => {
+  const batch = {
+    changes: [
+      { op: 'createNote' as const, note: { id: 'n_x', heading: 'once' } },
+      { op: 'createNote' as const, note: { id: 'n_x', heading: 'twice' } }, // retried create
+      { op: 'patchNote' as const, id: 'n_gone', fields: { x: 1 } },
+      { op: 'deleteNote' as const, id: 'n_gone' },
+      { op: 'createConnection' as const, connection: { id: 'c_x', fromNote: 'n_x', fromSide: 'top' as const, toNote: 'n_gone', toSide: 'top' as const } },
+      { op: 'createNote' as const, note: { id: 'n_y', groupId: 'g_deleted_elsewhere' } },
+    ],
+  };
+  const first = svc.applyChanges(undefined, batch);
+  assert.deepEqual(first.skipped.map((s) => s.reason), ['exists', 'missing', 'missing', 'note missing']);
+  assert.equal(svc.getNote(undefined, 'n_x').heading, 'once');
+  assert.equal(svc.getNote(undefined, 'n_y').groupId, null);
+  const replay = svc.applyChanges(undefined, batch); // whole batch again, e.g. after a lost response
+  assert.equal(replay.applied, 0);
+  assert.equal(Object.keys(svc.getWorkspaceById().notes).length, 2);
+});
+
+test('applyChanges rejects invalid input without writing anything', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  const before = fs.readFileSync(path.join(tmp, 'data.json'), 'utf8');
+  assert.throws(
+    () => svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_ok' } }, { op: 'patchNote', id: 'n_1', fields: { x: 'far' } }] } as any),
+    ValidationError,
+  );
+  assert.throws(() => svc.applyChanges(undefined, { changes: [{ op: 'explode' }] } as any), ValidationError);
+  assert.equal(fs.readFileSync(path.join(tmp, 'data.json'), 'utf8'), before);
+  assert.throws(() => svc.applyChanges('ws_404', { changes: [] }), NotFoundError);
+});
+
+test('applyChanges keeps counters safe: client-chosen ids never collide with server-created ones', () => {
+  svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_7', heading: 'client' } }] });
+  const next = svc.createNote(undefined, { heading: 'server' });
+  assert.equal(next.id, 'n_8'); // the store repaired nextNoteId past the highest existing id
+});
