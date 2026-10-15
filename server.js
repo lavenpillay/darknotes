@@ -12,27 +12,29 @@
  *   node server.js --both     # Run both simultaneously
  */
 
-import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
   isInitializeRequest,
-} from '@modelcontextprotocol/sdk/types.js';
-import { randomUUID } from 'node:crypto';
+} from "@modelcontextprotocol/sdk/types.js";
+import { randomUUID } from "node:crypto";
 
-import { createApiRouter } from './api.js';
-import { TOOLS, handleTool } from './tools.js';
+import { createApiRouter } from "./api.js";
+import { TOOLS, handleTool } from "./tools.js";
 
 const args = process.argv.slice(2);
-const mode = args.includes('--both') ? 'both'
-           : args.includes('--api')  ? 'api'
-           : 'mcp';   // default: MCP stdio (for Claude Desktop / claude config)
+const mode = args.includes("--both")
+  ? "both"
+  : args.includes("--api")
+    ? "api"
+    : "mcp"; // default: MCP stdio (for Claude Desktop / claude config)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_PORT = process.env.DARKNOTES_PORT || 3737;
@@ -41,8 +43,8 @@ const API_PORT = process.env.DARKNOTES_PORT || 3737;
 
 function createMcpServer() {
   const server = new Server(
-    { name: 'darknotes', version: '1.0.0' },
-    { capabilities: { tools: {} } }
+    { name: "darknotes", version: "1.0.0" },
+    { capabilities: { tools: { list_workspaces: true } } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -54,14 +56,19 @@ function createMcpServer() {
     try {
       const result = await handleTool(name, args || {});
       return {
-        content: [{
-          type: 'text',
-          text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-        }],
+        content: [
+          {
+            type: "text",
+            text:
+              typeof result === "string"
+                ? result
+                : JSON.stringify(result, null, 2),
+          },
+        ],
       };
     } catch (err) {
       return {
-        content: [{ type: 'text', text: `Error: ${err.message}` }],
+        content: [{ type: "text", text: `Error: ${err.message}` }],
         isError: true,
       };
     }
@@ -76,35 +83,37 @@ async function startApiServer() {
   const app = express();
 
   // Fully permissive CORS for local models and MCP clients
-  app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['*']
-  }));
+  app.use(
+    cors({
+      origin: "*",
+      methods: ["GET", "POST", "OPTIONS"],
+      allowedHeaders: ["*"],
+    }),
+  );
 
-  console.error('Authentication: Disabled (No authentication required)');
+  console.error("Authentication: Disabled (No authentication required)");
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: "10mb" }));
 
   // REST API
-  app.use('/api', createApiRouter());
+  app.use("/api", createApiRouter());
 
   // Static assets (CSS, etc.)
-  app.use('/css', express.static(path.join(__dirname, 'css')));
+  app.use("/css", express.static(path.join(__dirname, "css")));
 
   // MCP Streamable HTTP Transport
   const mcpTransports = new Map();
 
-  app.all('/mcp', async (req, res) => {
-    const sessionId = req.headers['mcp-session-id'];
+  app.all("/mcp", async (req, res) => {
+    const sessionId = req.headers["mcp-session-id"];
     let transport;
 
     if (sessionId) {
       transport = mcpTransports.get(sessionId);
       if (!transport) {
         return res.status(404).json({
-          jsonrpc: '2.0',
-          error: { code: -32000, message: 'Session not found' },
+          jsonrpc: "2.0",
+          error: { code: -32000, message: "Session not found" },
           id: null,
         });
       }
@@ -129,8 +138,11 @@ async function startApiServer() {
       await mcpServer.connect(transport);
     } else {
       return res.status(400).json({
-        jsonrpc: '2.0',
-        error: { code: -32700, message: 'Parse error: Expected initialize request' },
+        jsonrpc: "2.0",
+        error: {
+          code: -32700,
+          message: "Parse error: Expected initialize request",
+        },
         id: null,
       });
     }
@@ -138,19 +150,21 @@ async function startApiServer() {
     try {
       await transport.handleRequest(req, res, req.body);
     } catch (err) {
-      console.error('Error handling MCP request:', err);
+      console.error("Error handling MCP request:", err);
       res.status(500).send(err.message);
     }
   });
 
-  app.get('/health', (req, res) => res.json({ ok: true, service: 'darknotes-api' }));
+  app.get("/health", (req, res) =>
+    res.json({ ok: true, service: "darknotes-api" }),
+  );
 
-  app.get('/documentation', (req, res) => {
-    res.sendFile(path.join(__dirname, 'documentation.html'));
+  app.get("/documentation", (req, res) => {
+    res.sendFile(path.join(__dirname, "documentation.html"));
   });
 
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'darknotes-app.html'));
+  app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "darknotes-app.html"));
   });
 
   app.listen(API_PORT, () => {
@@ -168,14 +182,14 @@ async function startMcpStdioServer() {
   const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('DarkNotes MCP server running (stdio)');
+  console.error("DarkNotes MCP server running (stdio)");
 }
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
-if (mode === 'mcp') {
+if (mode === "mcp") {
   startMcpStdioServer();
-} else if (mode === 'api') {
+} else if (mode === "api") {
   startApiServer();
 } else {
   // --both: run API/HTTP server + separate Stdio server
