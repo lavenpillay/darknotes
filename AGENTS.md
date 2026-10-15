@@ -75,4 +75,4 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
 
 ## 8. Migration status
 
-Done: `packages/core` (store, service layer, export/import), `apps/server` (REST + MCP + security), the web app (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu, Style panel, minimap, import/export). Still to do: the *Clear All* action, port the docs page, then cutover (delete the legacy backend and HTML apps, update the Dockerfile). Migrating boards stored by the original app's `localStorage` was dropped: the user does not need it.
+Done: `packages/core` (store, service layer, export/import), `apps/server` (REST + MCP + security), the web app (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu, Style panel, minimap, import/export). Still to do: port the docs page, then cutover (delete the legacy backend and HTML apps, update the Dockerfile). Deliberately not ported: migrating boards stored by the original app's `localStorage`, and the original app's *Clear All* button (the user does not need either).
