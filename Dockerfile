@@ -1,25 +1,34 @@
-# Use a lightweight Node.js alpine image
-FROM node:20-alpine
-
-# Set the working directory in the container
+# ── Build: compile the server to JavaScript and export the web app to static files ──
+FROM node:22-alpine AS build
 WORKDIR /app
+# Manifests first, so the dependency layer is cached until they change.
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/core/package.json packages/core/
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+RUN npm ci
+COPY packages packages
+COPY apps apps
+RUN npm run build
 
-# Copy package.json and package-lock.json to install dependencies first (better caching)
-COPY package*.json ./
+# ── Runtime: Node, the compiled server and the static web app. One process, one port. ──
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production \
+    DARKNOTES_HOST=0.0.0.0 \
+    DARKNOTES_PORT=3737
+COPY package.json package-lock.json ./
+COPY packages/core/package.json packages/core/
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+# Only the server's runtime dependencies; @darknotes/core is bundled into the server build.
+RUN npm ci --omit=dev -w @darknotes/server && npm cache clean --force
+COPY --from=build /app/apps/server/dist apps/server/dist
+COPY --from=build /app/apps/web/out apps/web/out
 
-# Install only production dependencies
-RUN npm install --omit=dev
-
-# Copy the rest of the application code
-COPY . .
-
-# Expose the port the app runs on (default 3737)
+# Data lives in /root/.darknotes: mount a volume there to keep your notes.
+# The container binds all interfaces; publish the port on loopback only, e.g.
+#   docker run -p 127.0.0.1:3737:3737 -v ~/.darknotes:/root/.darknotes darknotes
+# and set DARKNOTES_TOKEN if the port is reachable by anyone else.
 EXPOSE 3737
-
-# Set environment variables
-# DarkNotes stores data in ~/.darknotes/data.json by default.
-# In the container, this will be /root/.darknotes/data.json.
-ENV DARKNOTES_PORT=3737
-
-# Run the server in API mode to serve the web app and REST API
-CMD ["node", "server.js", "--both"]
+CMD ["node", "apps/server/dist/index.js", "--api"]

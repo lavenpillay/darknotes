@@ -1,0 +1,27 @@
+{
+  "name": "@darknotes/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --tsconfig tsconfig.test.json --test lib/board-math.test.ts lib/board-store.test.ts lib/note-geometry.test.ts lib/connection-geometry.test.ts lib/group-geometry.test.ts lib/sync.test.ts lib/color.test.ts lib/fonts.test.ts lib/palette-store.test.ts lib/minimap.test.ts components/docs/docs.test.tsx"
+  },
+  "dependencies": {
+    "@darknotes/core": "*",
+    "next": "^16.4.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "tsx": "^4.23.15"
+  }
+}

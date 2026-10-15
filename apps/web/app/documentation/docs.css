@@ -1,26 +1,19 @@
 /**
- * DarkNotes Documentation Theme
- * ─────────────────────────────
- * Warm editorial palette aligned with the DarkNotes app (cream paper, terracotta accent).
- *
- * Usage:
- *   1. Link Google Fonts (Playfair Display, DM Sans, DM Mono).
- *   2. Link this stylesheet.
- *   3. Add class="dn-docs" to <body>.
- *   4. Use the layout/classes documented below.
- *
- * Layout skeleton:
- *   <div class="dn-page">
- *     <aside>…sidebar nav…</aside>
- *     <main>…content…</main>
- *   </div>
+ * DarkNotes documentation theme, scoped to the `.dn-docs` wrapper so it cannot affect the app.
+ * Ported from the original css/darknotes-docs-theme.css (same tokens, same look). Tailwind's reset removes list
+ * bullets and zeroes margins, so those are restored for lists below.
  */
 
+
 /* ── Fonts (load in HTML <head> for best performance) ── */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap');
 
 /* ── Design tokens ── */
-body.dn-docs {
+.dn-docs {
+  font-family: var(--dn-font-sans);
+  background: var(--dn-bg);
+  color: var(--dn-ink);
+  line-height: 1.7;
+  font-size: 15px;
   --dn-bg: #f5f0e8;
   --dn-surface: #faf7f2;
   --dn-ink: #1a1612;
@@ -39,16 +32,7 @@ body.dn-docs {
   --dn-font-mono: 'DM Mono', ui-monospace, monospace;
 }
 
-/* ── Reset (scoped) ── */
-body.dn-docs *,
-body.dn-docs *::before,
-body.dn-docs *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body.dn-docs {
+.dn-docs {
   font-family: var(--dn-font-sans);
   background: var(--dn-bg);
   color: var(--dn-ink);
@@ -56,17 +40,17 @@ body.dn-docs {
   font-size: 15px;
 }
 
-body.dn-docs {
+.dn-docs {
   scroll-behavior: smooth;
 }
 
 /* ── Layout ── */
-body.dn-docs .dn-page {
+.dn-docs .dn-page {
   display: flex;
   min-height: 100vh;
 }
 
-body.dn-docs aside {
+.dn-docs aside {
   width: var(--dn-sidebar-width);
   flex-shrink: 0;
   position: fixed;
@@ -80,7 +64,7 @@ body.dn-docs aside {
   z-index: 100;
 }
 
-body.dn-docs main {
+.dn-docs main {
   margin-left: var(--dn-sidebar-width);
   max-width: var(--dn-content-max);
   padding: 60px 56px 100px;
@@ -88,7 +72,7 @@ body.dn-docs main {
 }
 
 /* ── Sidebar ── */
-body.dn-docs .sidebar-logo {
+.dn-docs .sidebar-logo {
   font-family: var(--dn-font-serif);
   font-size: 22px;
   font-weight: 600;
@@ -100,15 +84,15 @@ body.dn-docs .sidebar-logo {
   letter-spacing: -0.3px;
 }
 
-body.dn-docs .sidebar-logo span {
+.dn-docs .sidebar-logo span {
   color: var(--dn-accent);
 }
 
-body.dn-docs .nav-section {
+.dn-docs .nav-section {
   margin-bottom: 6px;
 }
 
-body.dn-docs .nav-section-title {
+.dn-docs .nav-section-title {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -118,7 +102,7 @@ body.dn-docs .nav-section-title {
   display: block;
 }
 
-body.dn-docs .nav-link {
+.dn-docs .nav-link {
   display: block;
   padding: 6px 24px;
   color: var(--dn-ink-muted);
@@ -130,19 +114,19 @@ body.dn-docs .nav-link {
   margin-left: -1px;
 }
 
-body.dn-docs .nav-link:hover {
+.dn-docs .nav-link:hover {
   color: var(--dn-accent);
   background: var(--dn-accent-light);
 }
 
-body.dn-docs .nav-link.active {
+.dn-docs .nav-link.active {
   color: var(--dn-accent);
   border-left-color: var(--dn-accent);
   font-weight: 500;
 }
 
 /* ── Typography ── */
-body.dn-docs h1 {
+.dn-docs h1 {
   font-family: var(--dn-font-serif);
   font-size: 42px;
   font-weight: 700;
@@ -152,11 +136,11 @@ body.dn-docs h1 {
   letter-spacing: -0.5px;
 }
 
-body.dn-docs h1 .accent {
+.dn-docs h1 .accent {
   color: var(--dn-accent);
 }
 
-body.dn-docs .subtitle {
+.dn-docs .subtitle {
   font-size: 17px;
   color: var(--dn-ink-muted);
   margin-bottom: 52px;
@@ -164,7 +148,7 @@ body.dn-docs .subtitle {
   line-height: 1.6;
 }
 
-body.dn-docs h2 {
+.dn-docs h2 {
   font-family: var(--dn-font-serif);
   font-size: 26px;
   font-weight: 600;
@@ -175,13 +159,13 @@ body.dn-docs h2 {
   scroll-margin-top: 40px;
 }
 
-body.dn-docs h2:first-of-type {
+.dn-docs h2:first-of-type {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
 }
 
-body.dn-docs h3 {
+.dn-docs h3 {
   font-size: 16px;
   font-weight: 600;
   color: var(--dn-ink);
@@ -189,68 +173,68 @@ body.dn-docs h3 {
   scroll-margin-top: 40px;
 }
 
-body.dn-docs h4 {
+.dn-docs h4 {
   font-size: 14px;
   font-weight: 600;
   color: var(--dn-ink);
 }
 
-body.dn-docs p {
+.dn-docs p {
   margin-bottom: 14px;
   color: var(--dn-ink);
   max-width: 680px;
 }
 
-body.dn-docs .text-muted {
+.dn-docs .text-muted {
   color: var(--dn-ink-muted);
   font-size: 13px;
 }
 
-body.dn-docs .mt-sm {
+.dn-docs .mt-sm {
   margin-top: 8px;
 }
 
-body.dn-docs a {
+.dn-docs a {
   color: var(--dn-accent);
   text-decoration: none;
 }
 
-body.dn-docs a:hover {
+.dn-docs a:hover {
   text-decoration: underline;
 }
 
-body.dn-docs ul,
-body.dn-docs ol {
+.dn-docs ul,
+.dn-docs ol {
   margin: 10px 0 20px 20px;
   color: var(--dn-ink);
   max-width: 680px;
 }
 
-body.dn-docs li {
+.dn-docs li {
   margin-bottom: 6px;
 }
 
-body.dn-docs li:last-child {
+.dn-docs li:last-child {
   margin-bottom: 0;
 }
 
-body.dn-docs strong {
+.dn-docs strong {
   font-weight: 600;
 }
 
-body.dn-docs em {
+.dn-docs em {
   font-style: italic;
 }
 
 /* ── Feature cards ── */
-body.dn-docs .feature-grid {
+.dn-docs .feature-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin: 24px 0 36px;
 }
 
-body.dn-docs .feature-card {
+.dn-docs .feature-card {
   background: var(--dn-surface);
   border: 1.5px solid var(--dn-border);
   border-radius: 12px;
@@ -258,12 +242,12 @@ body.dn-docs .feature-card {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-body.dn-docs .feature-card:hover {
+.dn-docs .feature-card:hover {
   border-color: var(--dn-accent);
   box-shadow: 0 4px 16px var(--dn-shadow);
 }
 
-body.dn-docs .feature-card h4 {
+.dn-docs .feature-card h4 {
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 6px;
@@ -272,11 +256,11 @@ body.dn-docs .feature-card h4 {
   gap: 8px;
 }
 
-body.dn-docs .feature-card h4 .icon {
+.dn-docs .feature-card h4 .icon {
   font-size: 18px;
 }
 
-body.dn-docs .feature-card p {
+.dn-docs .feature-card p {
   font-size: 13px;
   color: var(--dn-ink-muted);
   margin: 0;
@@ -284,31 +268,31 @@ body.dn-docs .feature-card p {
 }
 
 /* ── Tables ── */
-body.dn-docs .shortcut-table,
-body.dn-docs .tool-table,
-body.dn-docs .api-table {
+.dn-docs .shortcut-table,
+.dn-docs .tool-table,
+.dn-docs .api-table {
   width: 100%;
   border-collapse: collapse;
   margin: 16px 0 32px;
 }
 
-body.dn-docs .shortcut-table {
+.dn-docs .shortcut-table {
   margin-bottom: 32px;
 }
 
-body.dn-docs .tool-table,
-body.dn-docs .api-table {
+.dn-docs .tool-table,
+.dn-docs .api-table {
   font-size: 13.5px;
 }
 
-body.dn-docs .api-table {
+.dn-docs .api-table {
   font-size: 13px;
   margin-bottom: 28px;
 }
 
-body.dn-docs .shortcut-table th,
-body.dn-docs .tool-table th,
-body.dn-docs .api-table th {
+.dn-docs .shortcut-table th,
+.dn-docs .tool-table th,
+.dn-docs .api-table th {
   text-align: left;
   font-size: 11px;
   font-weight: 600;
@@ -319,53 +303,53 @@ body.dn-docs .api-table th {
   border-bottom: 1.5px solid var(--dn-border);
 }
 
-body.dn-docs .api-table th {
+.dn-docs .api-table th {
   font-size: 10.5px;
   padding: 8px 12px;
 }
 
-body.dn-docs .tool-table th,
-body.dn-docs .api-table th {
+.dn-docs .tool-table th,
+.dn-docs .api-table th {
   background: var(--dn-surface);
 }
 
-body.dn-docs .shortcut-table td,
-body.dn-docs .tool-table td,
-body.dn-docs .api-table td {
+.dn-docs .shortcut-table td,
+.dn-docs .tool-table td,
+.dn-docs .api-table td {
   padding: 9px 14px;
   border-bottom: 1px solid var(--dn-border);
   font-size: 13.5px;
 }
 
-body.dn-docs .tool-table td,
-body.dn-docs .api-table td {
+.dn-docs .tool-table td,
+.dn-docs .api-table td {
   padding: 10px 14px;
   vertical-align: top;
 }
 
-body.dn-docs .api-table td {
+.dn-docs .api-table td {
   padding: 9px 12px;
 }
 
-body.dn-docs .shortcut-table tr:last-child td,
-body.dn-docs .tool-table tr:last-child td,
-body.dn-docs .api-table tr:last-child td {
+.dn-docs .shortcut-table tr:last-child td,
+.dn-docs .tool-table tr:last-child td,
+.dn-docs .api-table tr:last-child td {
   border-bottom: none;
 }
 
-body.dn-docs .shortcut-table tr:hover td,
-body.dn-docs .tool-table tr:hover td {
+.dn-docs .shortcut-table tr:hover td,
+.dn-docs .tool-table tr:hover td {
   background: var(--dn-accent-light);
 }
 
-body.dn-docs .tool-name {
+.dn-docs .tool-name {
   font-family: var(--dn-font-mono);
   font-size: 12.5px;
   color: var(--dn-accent);
   font-weight: 500;
 }
 
-body.dn-docs .tool-badge {
+.dn-docs .tool-badge {
   display: inline-block;
   font-size: 10px;
   font-weight: 600;
@@ -380,7 +364,7 @@ body.dn-docs .tool-badge {
 }
 
 /* ── Keyboard & inline code ── */
-body.dn-docs kbd {
+.dn-docs kbd {
   display: inline-block;
   font-family: var(--dn-font-mono);
   font-size: 11px;
@@ -392,7 +376,7 @@ body.dn-docs kbd {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-body.dn-docs pre {
+.dn-docs pre {
   background: var(--dn-code-bg);
   border: 1.5px solid var(--dn-border);
   border-radius: 10px;
@@ -406,7 +390,7 @@ body.dn-docs pre {
   max-width: 680px;
 }
 
-body.dn-docs code {
+.dn-docs code {
   font-family: var(--dn-font-mono);
   font-size: 12.5px;
   background: var(--dn-code-bg);
@@ -414,7 +398,7 @@ body.dn-docs code {
   border-radius: 4px;
 }
 
-body.dn-docs pre code {
+.dn-docs pre code {
   background: none;
   padding: 0;
   border-radius: 0;
@@ -422,7 +406,7 @@ body.dn-docs pre code {
 }
 
 /* ── Callouts ── */
-body.dn-docs .callout {
+.dn-docs .callout {
   border-left: 3px solid var(--dn-accent);
   background: var(--dn-accent-light);
   border-radius: 0 10px 10px 0;
@@ -432,21 +416,21 @@ body.dn-docs .callout {
   max-width: 680px;
 }
 
-body.dn-docs .callout strong {
+.dn-docs .callout strong {
   color: var(--dn-accent);
 }
 
-body.dn-docs .callout.tip {
+.dn-docs .callout.tip {
   border-color: var(--dn-success);
   background: var(--dn-success-bg);
 }
 
-body.dn-docs .callout.tip strong {
+.dn-docs .callout.tip strong {
   color: var(--dn-success);
 }
 
 /* ── HTTP method badges ── */
-body.dn-docs .method {
+.dn-docs .method {
   font-family: var(--dn-font-mono);
   font-size: 10.5px;
   font-weight: 700;
@@ -455,50 +439,50 @@ body.dn-docs .method {
   display: inline-block;
 }
 
-body.dn-docs .method.get {
+.dn-docs .method.get {
   background: #e3f2fd;
   color: #1565c0;
 }
 
-body.dn-docs .method.post {
+.dn-docs .method.post {
   background: #e8f5e9;
   color: #2e7d32;
 }
 
-body.dn-docs .method.patch {
+.dn-docs .method.patch {
   background: #fff8e1;
   color: #e65100;
 }
 
-body.dn-docs .method.put {
+.dn-docs .method.put {
   background: #f3e5f5;
   color: #6a1b9a;
 }
 
-body.dn-docs .method.delete {
+.dn-docs .method.delete {
   background: #fce4ec;
   color: #c62828;
 }
 
-body.dn-docs .endpoint {
+.dn-docs .endpoint {
   font-family: var(--dn-font-mono);
   font-size: 12px;
 }
 
 /* ── Numbered steps ── */
-body.dn-docs .steps {
+.dn-docs .steps {
   counter-reset: dn-step;
   margin: 16px 0 28px;
 }
 
-body.dn-docs .step {
+.dn-docs .step {
   display: flex;
   gap: 16px;
   margin-bottom: 20px;
   align-items: flex-start;
 }
 
-body.dn-docs .step-num {
+.dn-docs .step-num {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -512,43 +496,65 @@ body.dn-docs .step-num {
   justify-content: center;
 }
 
-body.dn-docs .step-body h4 {
+.dn-docs .step-body h4 {
   margin-bottom: 4px;
 }
 
-body.dn-docs .step-body p {
+.dn-docs .step-body p {
   font-size: 13.5px;
   color: var(--dn-ink-muted);
   margin: 0;
 }
 
-body.dn-docs .step-body pre {
+.dn-docs .step-body pre {
   margin-top: 8px;
 }
 
 /* ── Utilities ── */
-body.dn-docs hr {
+.dn-docs hr {
   border: none;
   border-top: 1.5px solid var(--dn-border);
   margin: 48px 0;
 }
 
-body.dn-docs .status-online {
+.dn-docs .status-online {
   color: var(--dn-success);
 }
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  body.dn-docs aside {
+  .dn-docs aside {
     display: none;
   }
 
-  body.dn-docs main {
+  .dn-docs main {
     margin-left: 0;
     padding: 32px 24px 60px;
   }
 
-  body.dn-docs .feature-grid {
+  .dn-docs .feature-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Tailwind preflight fixes ── */
+.dn-docs ul {
+  list-style: disc;
+}
+.dn-docs ol {
+  list-style: decimal;
+}
+.dn-docs table {
+  border-collapse: collapse;
+}
+.dn-docs .nav-link.active {
+  background: transparent;
+}
+html:has(.dn-docs) {
+  scroll-behavior: smooth;
+}
+.dn-docs .back-link {
+  display: inline-block;
+  margin: 0 24px 16px;
+  font-size: 12.5px;
 }

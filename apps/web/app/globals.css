@@ -1,0 +1,89 @@
+@import 'tailwindcss';
+
+/* Palette and fonts of the original DarkNotes design. */
+@theme {
+  --color-bg: #f5f0e8;
+  --color-surface: #faf7f2;
+  --color-ink: #1a1612;
+  --color-ink-muted: #7a7268;
+  --color-accent: #c4522a;
+  --color-accent-light: #e8cfc4;
+  --color-border: #e0d8cc;
+
+  --font-display: 'Playfair Display', serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+}
+
+body {
+  @apply bg-bg font-sans text-ink;
+}
+
+/* Board grid */
+.board-grid {
+  background-image:
+    linear-gradient(rgba(160, 148, 132, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160, 148, 132, 0.15) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Connection lines */
+.conn-line {
+  fill: none;
+  stroke: #b09878;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+  transition: stroke 0.15s, stroke-width 0.15s;
+}
+.conn-line:hover {
+  stroke: var(--color-accent);
+  stroke-width: 4;
+}
+.conn-line.preview {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: conn-dash 0.5s linear infinite;
+}
+@keyframes conn-dash {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+
+/* Colour picker sliders (hue / alpha): native range inputs with a painted track */
+input[type='range'].picker-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--track);
+  outline-offset: 3px;
+}
+input[type='range'].picker-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+input[type='range'].picker-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.checker {
+  background-image: linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%),
+    linear-gradient(45deg, #ddd 25%, #fff 25%, #fff 75%, #ddd 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}

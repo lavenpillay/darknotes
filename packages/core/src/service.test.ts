@@ -1,0 +1,427 @@
+import { test, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { DEFAULT_NOTE_STYLE } from './defaults';
+import * as svc from './service';
+import { ConflictError, NotFoundError, ValidationError } from './errors';
+
+let tmp: string;
+beforeEach(() => {
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-svc-'));
+  process.env.DARKNOTES_DATA_DIR = tmp;
+});
+afterEach(() => {
+  delete process.env.DARKNOTES_DATA_DIR;
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+// ── notes ────────────────────────────────────────────────────
+
+test('note lifecycle: ids come from workspace counters, body is split into lines', () => {
+  const a = svc.createNote(undefined, { heading: 'A', body: 'l1\nl2' });
+  const b = svc.createNote(undefined, { heading: 'B', labels: ['x'] });
+  assert.deepEqual([a.id, b.id], ['n_1', 'n_2']);
+  assert.deepEqual(a.lines, [
+    { type: 'text', text: 'l1' },
+    { type: 'text', text: 'l2' },
+  ]);
+
+  svc.appendToNote(undefined, 'n_1', { body: 'l3' });
+  assert.equal(svc.getNote(undefined, 'n_1').lines.length, 3);
+
+  svc.addLabel(undefined, 'n_1', 'x');
+  svc.addLabel(undefined, 'n_1', 'x');
+  assert.deepEqual(svc.getNote(undefined, 'n_1').labels, ['x']);
+  assert.equal(svc.listNotes(undefined, { label: 'x' }).length, 2);
+  assert.deepEqual(svc.removeLabel(undefined, 'n_1', 'x'), []);
+
+  assert.deepEqual(svc.deleteNote(undefined, 'n_2'), { heading: 'B' });
+  assert.throws(() => svc.getNote(undefined, 'n_2'), NotFoundError);
+});
+
+test('FIX (issue E): createNote honours position, size, font and colour options', () => {
+  const n = svc.createNote(undefined, { heading: 'P', x: 5, y: 6, w: 7, h: 8, fontColor: '#fff', headingFont: 'Lora' });
+  assert.deepEqual([n.x, n.y, n.w, n.h, n.fontColor, n.headingFont], [5, 6, 7, 8, '#fff', 'Lora']);
+  const d = svc.createNote(undefined, { heading: 'D' });
+  assert.deepEqual([d.x, d.y, d.w, d.h], [100, 100, 300, 220]); // defaults unchanged
+});
+
+test('FIX (issue E): updateNote can move/resize and change heading font', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  const n = svc.updateNote(undefined, 'n_1', { x: 1, y: 2, w: 3, h: 4, headingFont: 'Caveat', heading: 'B' });
+  assert.deepEqual([n.x, n.y, n.w, n.h, n.headingFont, n.heading], [1, 2, 3, 4, 'Caveat', 'B']);
+});
+
+test('updateNote: unknown keys are ignored, body replaces lines, absent fields untouched', () => {
+  svc.createNote(undefined, { heading: 'A', labels: ['k'] });
+  const n = svc.updateNote(undefined, 'n_1', { body: 'x\ny', bogus: 1 } as any);
+  assert.equal('bogus' in n, false);
+  assert.equal(n.lines.length, 2);
+  assert.deepEqual(n.labels, ['k']);
+});
+
+test('FIX (issue E): labels functions tolerate a note with no labels array', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  const raw = JSON.parse(fs.readFileSync(path.join(tmp, 'data.json'), 'utf8'));
+  delete raw.workspaces.ws_1.notes.n_1.labels;
+  fs.writeFileSync(path.join(tmp, 'data.json'), JSON.stringify(raw));
+  assert.deepEqual(svc.addLabel(undefined, 'n_1', 'z'), ['z']);
+});
+
+test('FIX (issue E): invalid input is rejected with ValidationError', () => {
+  assert.throws(() => svc.createNote(undefined, { heading: 5 } as any), ValidationError);
+  assert.throws(() => svc.createNote(undefined, { lines: [{ type: 'bad', text: 'x' }] } as any), ValidationError);
+  assert.throws(() => svc.updateNote(undefined, 'n_1', { x: 'far' } as any), ValidationError);
+  assert.throws(() => svc.createConnection(undefined, { fromNote: 'a' } as any), ValidationError);
+});
+
+test('FIX (issue E): a non-existent groupId is rejected on create and update; null ungroups', () => {
+  assert.throws(() => svc.createNote(undefined, { heading: 'A', groupId: 'g_9' }), NotFoundError);
+  svc.createNote(undefined, { heading: 'A' });
+  assert.throws(() => svc.updateNote(undefined, 'n_1', { groupId: 'g_9' }), NotFoundError);
+  svc.createGroup(undefined, { name: 'G' });
+  assert.equal(svc.updateNote(undefined, 'n_1', { groupId: 'g_1' }).groupId, 'g_1');
+  assert.equal(svc.updateNote(undefined, 'n_1', { groupId: null }).groupId, null);
+});
+
+test('checkItem only works on check lines', () => {
+  svc.createNote(undefined, {
+    heading: 'T',
+    lines: [
+      { type: 'text', text: 'a' },
+      { type: 'check', text: 'b', checked: false },
+    ],
+  });
+  assert.throws(() => svc.checkItem(undefined, 'n_1', 0, true), ValidationError);
+  assert.throws(() => svc.checkItem(undefined, 'n_1', 9, true), NotFoundError);
+  assert.equal(svc.checkItem(undefined, 'n_1', 1, true).checked, true);
+});
+
+test('listNotes filters by search (heading/body/label, case-insensitive), label and group', () => {
+  svc.createGroup(undefined, { name: 'G' });
+  svc.createNote(undefined, { heading: 'Alpha', body: 'needle', groupId: 'g_1' });
+  svc.createNote(undefined, { heading: 'Beta', labels: ['NEEDLE'] });
+  svc.createNote(undefined, { heading: 'Gamma' });
+  assert.equal(svc.listNotes(undefined, { search: 'Needle' }).length, 2);
+  assert.equal(svc.listNotes(undefined, { groupId: 'g_1' }).length, 1);
+  assert.equal(svc.listNotes(undefined).length, 3);
+});
+
+// ── groups & connections ─────────────────────────────────────
+
+test('groups, connections and cascade deletes', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  svc.createNote(undefined, { heading: 'B' });
+  const g = svc.createGroup(undefined, { name: 'G' });
+  assert.equal(g.id, 'g_1');
+  svc.addNoteToGroup(undefined, 'n_1', 'g_1');
+  assert.equal(svc.listGroups()[0]!.noteCount, 1);
+  assert.equal(svc.updateGroup(undefined, 'g_1', { name: 'G2', minimized: true }).name, 'G2');
+
+  const c = svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'right', toNote: 'n_2', toSide: 'left' });
+  assert.equal(c.id, 'c_1');
+  assert.throws(
+    () => svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'right', toNote: 'nope', toSide: 'left' }),
+    /Target note not found/,
+  );
+  assert.throws(
+    () => svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'middle', toNote: 'n_2', toSide: 'left' } as any),
+    ValidationError,
+  );
+  assert.equal(svc.listConnections()[0]!.fromHeading, 'A');
+
+  svc.deleteNote(undefined, 'n_2');
+  assert.equal(svc.listConnections().length, 0);
+
+  svc.deleteGroup(undefined, 'g_1');
+  assert.equal(svc.getNote(undefined, 'n_1').groupId, null);
+  assert.throws(() => svc.deleteConnection(undefined, 'c_1'), NotFoundError);
+});
+
+test('FIX: connections to missing notes are rejected (REST used to accept them)', () => {
+  assert.throws(
+    () => svc.createConnection(undefined, { fromNote: 'a', fromSide: 'top', toNote: 'b', toSide: 'top' }),
+    NotFoundError,
+  );
+});
+
+// ── workspaces ───────────────────────────────────────────────
+
+test('workspace lifecycle and rules', () => {
+  const w = svc.createWorkspace(' Two ');
+  assert.deepEqual([w.id, w.name], ['ws_2', 'Two']);
+  assert.equal(svc.createWorkspace().name, 'New Workspace');
+  svc.renameWorkspace('ws_2', 'Deux');
+  svc.updateWorkspace('ws_2', { boardZoom: 2 });
+  assert.equal(svc.getWorkspaceById('ws_2').boardZoom, 2);
+
+  svc.activateWorkspace('ws_2');
+  assert.equal(svc.listWorkspaces().currentWorkspaceId, 'ws_2');
+  svc.deleteWorkspace('ws_2'); // deleting the current workspace moves current
+  assert.equal(svc.listWorkspaces().currentWorkspaceId, 'ws_1');
+
+  svc.deleteWorkspace('ws_3');
+  assert.throws(() => svc.deleteWorkspace('ws_1'), ConflictError);
+  assert.throws(() => svc.deleteWorkspace('ws_404'), NotFoundError);
+});
+
+test('operations target a given workspace, default to current', () => {
+  svc.createWorkspace('Two');
+  svc.createNote('ws_2', { heading: 'in two' });
+  assert.equal(svc.listNotes('ws_2').length, 1);
+  assert.equal(svc.listNotes().length, 0);
+  assert.throws(() => svc.listNotes('ws_404'), NotFoundError);
+});
+
+test('saveBoard accepts arrays or maps; FIX (issue D) a stale counter cannot cause id reuse', () => {
+  svc.createNote(undefined, { heading: 'A' }); // n_1
+  svc.saveBoard('ws_1', { notes: [{ id: 'n_1', heading: 'A' }], nextNoteId: 1, boardZoom: 1.5 });
+  const ws = svc.getWorkspaceById('ws_1');
+  assert.deepEqual(Object.keys(ws.notes), ['n_1']);
+  assert.equal(ws.boardZoom, 1.5);
+  assert.equal(svc.createNote(undefined, { heading: 'B' }).id, 'n_2');
+  assert.throws(() => svc.saveBoard('ws_1', { boardZoom: 'big' } as any), ValidationError);
+});
+
+test('a failed operation does not write', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  const before = fs.readFileSync(path.join(tmp, 'data.json'), 'utf8');
+  assert.throws(() => svc.deleteNote(undefined, 'n_404'));
+  assert.equal(fs.readFileSync(path.join(tmp, 'data.json'), 'utf8'), before);
+});
+
+// ── search ───────────────────────────────────────────────────
+
+test('searchNotes spans workspaces', () => {
+  svc.createWorkspace('Two');
+  svc.createNote(undefined, { heading: 'Alpha', body: 'needle' });
+  svc.createNote('ws_2', { heading: 'Beta', labels: ['NEEDLE'] });
+  assert.deepEqual(svc.searchNotes('Needle').map((h) => h.workspaceId).sort(), ['ws_1', 'ws_2']);
+  assert.throws(() => svc.searchNotes(''), ValidationError);
+});
+
+test('connections can carry arrows; invalid arrows are rejected; absent stays absent', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  svc.createNote(undefined, { heading: 'B' });
+  const plain = svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'right', toNote: 'n_2', toSide: 'left' });
+  assert.equal('arrows' in plain, false);
+  const arrow = svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'top', toNote: 'n_2', toSide: 'top', arrows: 'end' });
+  assert.equal(arrow.arrows, 'end');
+  assert.throws(
+    () => svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'top', toNote: 'n_2', toSide: 'top', arrows: 'both-ways' } as any),
+    ValidationError,
+  );
+});
+
+// ── incremental changes ──────────────────────────────────────
+
+test('applyChanges: creates, patches and deletes in one atomic batch', () => {
+  const r = svc.applyChanges(undefined, {
+    changes: [
+      { op: 'createGroup', group: { id: 'g_web1', name: 'G' } },
+      { op: 'createNote', note: { id: 'n_web1', heading: 'A', groupId: 'g_web1' } },
+      { op: 'createNote', note: { id: 'n_web2', heading: 'B' } },
+      { op: 'createConnection', connection: { id: 'c_web1', fromNote: 'n_web1', fromSide: 'right', toNote: 'n_web2', toSide: 'left' } },
+      { op: 'patchNote', id: 'n_web1', fields: { x: 5, lines: [{ type: 'text', text: 'hi' }] } },
+      { op: 'patchConnection', id: 'c_web1', fields: { arrows: 'end' } },
+      { op: 'setView', fields: { boardZoom: 2 } },
+    ],
+  });
+  assert.equal(r.applied, 7);
+  assert.deepEqual(r.skipped, []);
+  const ws = svc.getWorkspaceById();
+  assert.deepEqual([ws.notes.n_web1!.x, ws.notes.n_web1!.groupId, ws.connections.c_web1!.arrows, ws.boardZoom], [5, 'g_web1', 'end', 2]);
+
+  svc.applyChanges(undefined, { changes: [{ op: 'deleteNote', id: 'n_web2' }, { op: 'deleteGroup', id: 'g_web1' }] });
+  const after = svc.getWorkspaceById();
+  assert.deepEqual(Object.keys(after.notes), ['n_web1']);
+  assert.equal(after.notes.n_web1!.groupId, null); // ungrouped, not deleted
+  assert.deepEqual(Object.keys(after.connections), []); // cascade
+});
+
+test('applyChanges never erases what another client added (the whole-board overwrite bug)', () => {
+  const mcpNote = svc.createNote(undefined, { heading: 'added by Claude' }); // n_1
+  const mcpGroup = svc.createGroup(undefined, { name: 'Claude group' });
+  // The browser has never seen those; it only knows its own edit.
+  svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_browser', heading: 'mine' } }] });
+  const ws = svc.getWorkspaceById();
+  assert.deepEqual(Object.keys(ws.notes).sort(), [mcpNote.id, 'n_browser'].sort());
+  assert.ok(ws.groups[mcpGroup.id]);
+});
+
+test('applyChanges only touches the fields in a patch (concurrent edits to other fields survive)', () => {
+  svc.createNote(undefined, { heading: 'orig', x: 10 });
+  svc.updateNote(undefined, 'n_1', { heading: 'renamed by Claude' }); // elsewhere
+  svc.applyChanges(undefined, { changes: [{ op: 'patchNote', id: 'n_1', fields: { x: 99 } }] }); // browser moved it
+  const n = svc.getNote(undefined, 'n_1');
+  assert.deepEqual([n.heading, n.x], ['renamed by Claude', 99]);
+});
+
+test('applyChanges is idempotent and lenient: replays, vanished targets and dangling references are skipped', () => {
+  const batch = {
+    changes: [
+      { op: 'createNote' as const, note: { id: 'n_x', heading: 'once' } },
+      { op: 'createNote' as const, note: { id: 'n_x', heading: 'twice' } }, // retried create
+      { op: 'patchNote' as const, id: 'n_gone', fields: { x: 1 } },
+      { op: 'deleteNote' as const, id: 'n_gone' },
+      { op: 'createConnection' as const, connection: { id: 'c_x', fromNote: 'n_x', fromSide: 'top' as const, toNote: 'n_gone', toSide: 'top' as const } },
+      { op: 'createNote' as const, note: { id: 'n_y', groupId: 'g_deleted_elsewhere' } },
+    ],
+  };
+  const first = svc.applyChanges(undefined, batch);
+  assert.deepEqual(first.skipped.map((s) => s.reason), ['exists', 'missing', 'missing', 'note missing']);
+  assert.equal(svc.getNote(undefined, 'n_x').heading, 'once');
+  assert.equal(svc.getNote(undefined, 'n_y').groupId, null);
+  const replay = svc.applyChanges(undefined, batch); // whole batch again, e.g. after a lost response
+  assert.equal(replay.applied, 0);
+  assert.equal(Object.keys(svc.getWorkspaceById().notes).length, 2);
+});
+
+test('applyChanges rejects invalid input without writing anything', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  const before = fs.readFileSync(path.join(tmp, 'data.json'), 'utf8');
+  assert.throws(
+    () => svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_ok' } }, { op: 'patchNote', id: 'n_1', fields: { x: 'far' } }] } as any),
+    ValidationError,
+  );
+  assert.throws(() => svc.applyChanges(undefined, { changes: [{ op: 'explode' }] } as any), ValidationError);
+  assert.equal(fs.readFileSync(path.join(tmp, 'data.json'), 'utf8'), before);
+  assert.throws(() => svc.applyChanges('ws_404', { changes: [] }), NotFoundError);
+});
+
+test('applyChanges keeps counters safe: client-chosen ids never collide with server-created ones', () => {
+  svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_7', heading: 'client' } }] });
+  const next = svc.createNote(undefined, { heading: 'server' });
+  assert.equal(next.id, 'n_8'); // the store repaired nextNoteId past the highest existing id
+});
+
+test('new notes start with the shared default style (sans-serif MesloLG heading font)', () => {
+  const n = svc.createNote(undefined, { heading: 'D' });
+  assert.deepEqual(
+    [n.bgColor, n.fontColor, n.fontSize, n.headingFont, n.headingSize],
+    ['#FFF9C4', '#1a1612', 14, 'MesloLG', 17],
+  );
+  assert.equal(n.headingFont, DEFAULT_NOTE_STYLE.headingFont);
+});
+
+// ── export / import ──────────────────────────────────────────
+
+function seedBoard() {
+  const g = svc.createGroup(undefined, { name: 'Ideas', x: 50, y: 60, w: 500, h: 400, color: 'rgba(1,2,3,0.5)', minimized: true });
+  const a = svc.createNote(undefined, { heading: 'Alpha', lines: [{ type: 'check', text: 'do it', checked: true }], labels: ['x'], x: 100, y: 120, bgColor: '#E3F2FD', groupId: g.id });
+  const b = svc.createNote(undefined, { heading: 'Beta', x: 700, y: 120, zIndex: 25 });
+  svc.createConnection(undefined, { fromNote: a.id, fromSide: 'right', toNote: b.id, toSide: 'left', arrows: 'both' });
+  svc.updateWorkspace('ws_1', { boardOffsetX: -30, boardOffsetY: 15, boardZoom: 1.5 });
+  return { a, b, g };
+}
+
+test('exportWorkspace: a flat, versioned document with everything on the board', () => {
+  seedBoard();
+  const out = svc.exportWorkspace();
+  assert.deepEqual([out.app, out.version, out.name], ['darknotes', 1, 'My Workspace']);
+  assert.ok(!Number.isNaN(Date.parse(out.exportedAt)));
+  assert.deepEqual([out.boardOffsetX, out.boardOffsetY, out.boardZoom], [-30, 15, 1.5]);
+  assert.deepEqual(out.notes.map((n) => n.heading), ['Alpha', 'Beta']);
+  assert.equal(out.groups[0]!.minimized, true);
+  assert.equal(out.connections[0]!.arrows, 'both');
+  assert.throws(() => svc.exportWorkspace('ws_404'), NotFoundError);
+});
+
+test('import creates a NEW workspace and leaves everything else alone', () => {
+  seedBoard();
+  const before = svc.getWorkspaceById('ws_1');
+  const r = svc.importWorkspace(svc.exportWorkspace());
+  assert.equal(r.workspace.id, 'ws_2');
+  assert.deepEqual(r.imported, { notes: 2, groups: 1, connections: 1 });
+  assert.deepEqual(r.skipped, { connections: 0 });
+  assert.deepEqual(svc.getWorkspaceById('ws_1'), before); // untouched
+  assert.equal(svc.listWorkspaces().currentWorkspaceId, 'ws_1'); // not activated by the service
+});
+
+test('round trip keeps content, styling, groups, connections, arrows, view and stacking; ids are fresh', () => {
+  const { a } = seedBoard();
+  const ws = svc.importWorkspace(svc.exportWorkspace()).workspace;
+  const [na, nb] = Object.values(ws.notes);
+  assert.deepEqual([na!.heading, na!.lines, na!.labels, na!.bgColor, na!.x, na!.y], [a.heading, a.lines, a.labels, '#E3F2FD', 100, 120]);
+  assert.equal(nb!.zIndex, 25);
+  assert.deepEqual(Object.keys(ws.notes), ['n_1', 'n_2']);
+  assert.deepEqual(Object.keys(ws.groups), ['g_1']);
+  assert.deepEqual([ws.groups.g_1!.name, ws.groups.g_1!.minimized, ws.groups.g_1!.color], ['Ideas', true, 'rgba(1,2,3,0.5)']);
+  assert.equal(na!.groupId, 'g_1'); // membership remapped
+  assert.equal(nb!.groupId, null);
+  const conn = Object.values(ws.connections)[0]!;
+  assert.deepEqual([conn.fromNote, conn.toNote, conn.arrows], [na!.id, nb!.id, 'both']); // endpoints remapped
+  assert.deepEqual([ws.boardOffsetX, ws.boardOffsetY, ws.boardZoom], [-30, 15, 1.5]);
+  assert.deepEqual([ws.nextNoteId, ws.nextGroupId, ws.nextConnectionId], [3, 2, 2]);
+});
+
+test('imported workspaces get working counters, so new notes never reuse an id', () => {
+  seedBoard();
+  const ws = svc.importWorkspace(svc.exportWorkspace()).workspace;
+  assert.equal(svc.createNote(ws.id, { heading: 'next' }).id, 'n_3');
+});
+
+test('the original app\'s export imports: no ids, arrays, numeric references; unplaceable connections are skipped and counted', () => {
+  const legacy = {
+    name: 'Old board',
+    notes: [
+      { heading: 'One', lines: [{ type: 'text', text: 'a' }], labels: [], x: 10, y: 20, w: 300, h: 220, bgColor: '#fff', fontColor: '#000', fontSize: 14, headingFont: 'Lora', headingSize: 17 },
+      { heading: 'Two', x: 400, y: 20 },
+    ],
+    groups: [{ name: 'G', x: 0, y: 0, w: 460, h: 320, color: 'rgba(1,2,3,0.5)' }],
+    connections: [
+      { fromNote: 1, fromSide: 'right', toNote: 2, toSide: 'left', arrows: 'none' }, // ids the file never states
+      { fromNote: 'x', fromSide: 'top', toNote: 'y', toSide: 'top' },
+      { fromNote: 1, fromSide: 'sideways', toNote: 2, toSide: 'left' },
+    ],
+  };
+  const r = svc.importWorkspace(legacy);
+  assert.equal(r.workspace.name, 'Old board');
+  assert.deepEqual(r.imported, { notes: 2, groups: 1, connections: 0 });
+  assert.deepEqual(r.skipped, { connections: 3 }); // none of these notes has an id to point at
+  const [one, two] = Object.values(r.workspace.notes);
+  assert.deepEqual([one!.heading, one!.headingFont, two!.groupId], ['One', 'Lora', null]);
+  assert.ok(two!.zIndex > one!.zIndex); // file order becomes stacking order
+});
+
+test('import resolves connections when the file does state ids (numbers or strings, in arrays or id-keyed maps)', () => {
+  const r = svc.importWorkspace({
+    name: 'Mapped',
+    notes: { 7: { id: 7, heading: 'Seven' }, k: { id: 'k', heading: 'Kay', groupId: 3 } },
+    groups: { 3: { id: 3, name: 'Three' } },
+    connections: [{ id: 'c', fromNote: 7, fromSide: 'bottom', toNote: 'k', toSide: 'top' }],
+  });
+  assert.deepEqual(r.imported, { notes: 2, groups: 1, connections: 1 });
+  const ws = r.workspace;
+  assert.equal(ws.notes.n_2!.groupId, 'g_1');
+  assert.deepEqual([ws.connections.c_1!.fromNote, ws.connections.c_1!.toNote], ['n_1', 'n_2']);
+});
+
+test('import accepts the wrapped form, a bare array of notes, and names the workspace sensibly', () => {
+  assert.equal(svc.importWorkspace({ workspace: { name: 'Wrapped', notes: [{ heading: 'a' }] } }).workspace.name, 'Wrapped');
+  const bare = svc.importWorkspace([{ heading: 'a' }, { heading: 'b' }]);
+  assert.deepEqual([bare.workspace.name, bare.imported.notes], ['Imported workspace', 2]);
+  assert.equal(svc.importWorkspace({ name: '   ', notes: [] }).workspace.name, 'Imported workspace');
+});
+
+test('import clamps the saved view and ignores unknown fields', () => {
+  const ws = svc.importWorkspace({ name: 'v', boardZoom: 99, boardOffsetX: 'no', notes: [{ heading: 'x', mystery: { a: 1 } }] }).workspace;
+  assert.deepEqual([ws.boardZoom, ws.boardOffsetX], [3, 0]);
+  assert.equal('mystery' in Object.values(ws.notes)[0]!, false);
+});
+
+test('import rejects bad input and writes nothing', () => {
+  const before = svc.listWorkspaces().workspaces.length;
+  for (const bad of ['text', 42, null, { notes: [5] }, { notes: [{ x: 'far' }] }, { groups: [{ w: 'wide' }] }, { notes: [{ lines: [{ type: 'bogus', text: 't' }] }] }]) {
+    assert.throws(() => svc.importWorkspace(bad as any), ValidationError, JSON.stringify(bad));
+  }
+  assert.throws(() => svc.importWorkspace({ notes: new Array(5001).fill({}) }), /Too many items/);
+  assert.equal(svc.listWorkspaces().workspaces.length, before);
+  try {
+    svc.importWorkspace({ notes: [{ heading: 'ok' }, { x: 'far' }] });
+  } catch (e) {
+    assert.match((e as Error).message, /notes\[1\]/); // says which entry
+  }
+});
