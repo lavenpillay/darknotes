@@ -11,7 +11,7 @@
     "dev:server": "npm run dev -w @darknotes/server",
     "dev:web": "npm run dev -w @darknotes/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test:all": "npm test && npm test -w @darknotes/core -w @darknotes/server",
+    "test:all": "npm test && npm test -w @darknotes/core -w @darknotes/server -w @darknotes/web",
     "mcp": "node --import tsx apps/server/src/index.ts",
     "serve": "node --import tsx apps/server/src/index.ts --api",
     "serve:both": "node --import tsx apps/server/src/index.ts --both"

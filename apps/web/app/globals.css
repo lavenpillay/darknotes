@@ -18,3 +18,11 @@
 body {
   @apply bg-bg font-sans text-ink;
 }
+
+/* Board grid, same look as the legacy #canvas::before */
+.board-grid {
+  background-image:
+    linear-gradient(rgba(160, 148, 132, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160, 148, 132, 0.15) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
