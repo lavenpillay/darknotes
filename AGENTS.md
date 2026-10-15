@@ -13,7 +13,7 @@ The repo is an **npm-workspaces monorepo in TypeScript**, mid-migration from a p
 | Path | Role |
 |---|---|
 | `packages/core` | **Single owner of all data rules.** Types (`types.ts`), file store (`store.ts`), service layer (`service.ts`), Zod schemas (`schemas.ts`), domain errors (`errors.ts`) |
-| `apps/server` | Thin adapters over `core`: REST (`rest.ts`), MCP tools (`tools.ts`), MCP sessions (`mcp.ts`), HTTP app and security (`app.ts`, `security.ts`, `config.ts`), entry point (`index.ts`) |
+| `apps/server` | Thin adapters over `core` (built to one file, `dist/index.js`, with `core` bundled in by tsup): REST (`rest.ts`), MCP tools (`tools.ts`), MCP sessions (`mcp.ts`), HTTP app and security (`app.ts`, `security.ts`, `config.ts`), entry point (`index.ts`) |
 | `apps/web` | Next.js (App Router) + Tailwind frontend. `lib/` holds pure logic and the board store; `components/` holds React UI |
 | `darknotes-app.html`, `documentation.html`, `css/` | **Legacy UI and docs page**, still served by the server until the cleanup removes them. Behaviour reference only; do not edit `documentation.html` (the docs live in `apps/web/components/docs/`) |
 | `server.js`, `api.js`, `tools.js`, `store.js` | **Legacy backend. Superseded; do not add features here.** Kept only so `tests/characterization.test.mjs` can pin old behaviour; they are deleted at cutover |
@@ -23,7 +23,9 @@ The repo is an **npm-workspaces monorepo in TypeScript**, mid-migration from a p
 
 ```bash
 npm install
-npm run dev:all        # API server (:3737) + Next.js app (:3000) together
+npm run build          # production build: server -> apps/server/dist (tsup), web app -> apps/web/out (static export)
+npm start              # production: one process on :3737 serving the web app, /api, /mcp (run build first)
+npm run dev:all        # development: API server (:3737) + Next.js dev server (:3000) with hot reload
 npm run serve          # API server only: /api, /mcp, /health, legacy UI on :3737
 npm run mcp            # MCP over stdio (what Claude Desktop / Claude Code launch)
 npm run dev:web        # Next.js dev server only (needs the API running)
@@ -33,7 +35,7 @@ npm run test:all       # legacy + core + server + web tests
 npm run build -w @darknotes/web
 ```
 
-Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mode, binds `0.0.0.0` inside the container, and should be published on loopback (`-p 127.0.0.1:3737:3737`).
+Requires Node 22+. Docker: `docker build -t darknotes .` (two stages: build, then Node + the compiled server + the static web app); it runs `node apps/server/dist/index.js --api`, binds `0.0.0.0` inside the container and should be published on loopback (`-p 127.0.0.1:3737:3737`).
 
 ## 4. Where changes go
 
@@ -56,6 +58,8 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
 - **Web code must import core types from `@darknotes/core/types`**, never from `@darknotes/core`. The package root pulls in `node:fs` and would break the browser bundle.
 - **Web architecture:** pure logic lives in `apps/web/lib/*.ts` with unit tests (geometry, board maths, store). Components stay thin. The board store (`lib/board-store.ts`) applies edits at once and saves the whole board to the server after a debounce; the server is the source of truth and `localStorage` is only an offline cache. Transient UI state (a connection being dragged, open menus) goes in `lib/ui-store.ts` and is never saved.
 - **Browser-side changes to saved data** go through store actions, not ad hoc `fetch` calls.
+- **The web app is a static export in production** (`next.config.ts` sets `output: 'export'` when `NODE_ENV=production`), served by `apps/server` from `apps/web/out`. So do not use server-only Next.js features: no route handlers, no server components that fetch data at request time, no middleware, no `next/image` optimisation, no `rewrites` outside the dev branch of the config. All data goes through the REST API with relative `/api` URLs (the dev server proxies them). A page route must produce a static `.html`; the server maps `/page` to `page.html` and serves `404.html` for unknown pages.
+- **Server runtime dependencies live in `apps/server/package.json` `dependencies`** (express, cors, the MCP SDK, zod): `@darknotes/core` is a devDependency because tsup bundles it. If you add a runtime package to `core` or the server, add it to the server's `dependencies` too, or the compiled build and the Docker image will fail at startup. `npm run build` then `node apps/server/dist/index.js --api` is the quickest check.
 - **Browser saves are incremental, never whole-board.** `lib/sync.ts` diffs the local board against the last server state into `Change` ops (`POST /workspaces/:id/changes`, service function `applyChanges`) and three-way merges the server's reply, so other writers' edits (Claude over MCP, other tabs) are never overwritten. Do not use `saveBoard` / `PUT /board` from new code (it exists for the legacy UI). New saved fields need: the field in `types.ts` and `schemas.ts`, the field list in `lib/sync.ts`, and a test in `sync.test.ts`.
 - **Logging in the server goes to stderr.** In stdio MCP mode stdout is the protocol channel; anything printed there corrupts it.
 - **Security defaults matter:** the server binds `127.0.0.1`, rejects foreign `Host`/`Origin` headers, and supports an optional bearer token. Do not loosen these to make something work; add configuration instead (`apps/server/src/config.ts`).
@@ -75,4 +79,4 @@ Requires Node 22+. Docker: `docker build -t darknotes .`; the image runs API mod
 
 ## 8. Migration status
 
-Done: `packages/core` (store, service layer, export/import), `apps/server` (REST + MCP + security), the web app (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu, Style panel, minimap, import/export, documentation page). Still to do: the cutover (delete the legacy backend `server.js`/`api.js`/`tools.js`/`store.js`, `darknotes-app.html`, `notes-app.html`, `documentation.html`, `css/` and `tests/characterization.test.mjs`; make the server stop serving them; decide how the Next.js app is served in production and update the Dockerfile and README accordingly). Deliberately not ported: migrating boards stored by the original app's `localStorage`, and the original app's *Clear All* button (the user does not need either).
+Done: `packages/core` (store, service layer, export/import), `apps/server` (REST + MCP + security), the web app (API client, board store, pan/zoom, note editing, drag/resize, workspaces, connections, groups, note context menu, Style panel, minimap, import/export, documentation page). Production setup done: the server serves the static web app on one port, the server builds to one JavaScript file, and the Dockerfile is multi-stage. Still to do: delete the legacy files (backend `server.js`/`api.js`/`tools.js`/`store.js`, `darknotes-app.html`, `notes-app.html`, `documentation.html`, `css/`, `tests/characterization.test.mjs`) and the server's fallback that serves the original app (`legacyUiDir`, `DARKNOTES_LEGACY_UI_DIR`). Deliberately not ported: migrating boards stored by the original app's `localStorage`, and the original app's *Clear All* button (the user does not need either). The Docker image has not been built or run in this environment (the Docker daemon was unavailable); its runtime stage was rehearsed in a clean directory instead.

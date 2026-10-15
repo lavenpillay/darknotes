@@ -5,8 +5,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node apps/server/dist/index.js --api",
+    "dev": "npm run dev:all",
     "test": "node --test tests/characterization.test.mjs",
     "dev:server": "npm run dev -w @darknotes/server",
     "dev:web": "npm run dev -w @darknotes/web",
@@ -15,7 +15,8 @@
     "mcp": "node --import tsx apps/server/src/index.ts",
     "serve": "node --import tsx apps/server/src/index.ts --api",
     "serve:mcp-http": "node --import tsx apps/server/src/index.ts --both",
-    "dev:all": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\""
+    "dev:all": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "build": "npm run build -w @darknotes/web && npm run build -w @darknotes/server"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

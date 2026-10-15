@@ -30,7 +30,7 @@ docker run -d \\
   -v ~/.darknotes:/root/.darknotes \\
   --name darknotes \\
   darknotes`}</pre>
-              <p className="text-muted mt-sm">The container runs the server: the REST API and the MCP endpoint on port 3737 (and, for now, the original interface at <code>http://localhost:3737</code>). The web app described in this guide is not in the image yet; run it with Option B. If the port is reachable by anyone else, also pass <code>-e DARKNOTES_TOKEN=…</code> (see Configuration &amp; Security).</p>
+              <p className="text-muted mt-sm">The image contains the compiled server and the web app, so one container gives you everything on port 3737: open <code>http://localhost:3737</code> for the app (the API is at <code>/api</code> and MCP at <code>/mcp</code>). If the port is reachable by anyone else, also pass <code>-e DARKNOTES_TOKEN=…</code> (see Configuration &amp; Security).</p>
             </div>
           </div>
           <div className="step">
@@ -39,11 +39,12 @@ docker run -d \\
               <h4>Option B: Run with Node.js</h4>
               <pre>{`npm install
 
-npm run dev:all          # the server (:3737) and the web app (http://localhost:3000) together
-npm run serve            # the server only: /api, /mcp and /health on http://localhost:3737
-npm run mcp              # MCP over stdio only (what Claude Desktop / Claude Code launch)
-npm run serve:mcp-http   # the server plus an MCP stdio server in one process (does not start the web app)`}</pre>
-              <p className="text-muted mt-sm">Requires Node.js 22 or newer. Open <code>http://localhost:3000</code> for the web app. It is a separate process from the server, which <code>npm run dev:all</code> starts for you (or run <code>npm run serve</code> and <code>npm run dev:web</code> in two terminals). Use <code>npm run dev:server</code> to restart the server automatically on file changes.</p>
+npm run build            # compile the server and build the web app (once, and after updates)
+npm start                # everything on http://localhost:3737: the web app, /api and /mcp
+
+# for development, with hot reload (the web app on :3000, the server on :3737)
+npm run dev:all`}</pre>
+              <p className="text-muted mt-sm">Requires Node.js 22 or newer. After <code>npm start</code>, open <code>http://localhost:3737</code>. The server also runs without the web app: <code>npm run serve</code> (API and MCP only, from source), <code>npm run mcp</code> (MCP over stdio only) and <code>npm run serve:mcp-http</code> (the server plus an MCP stdio server in one process, which does not start the web app).</p>
             </div>
           </div>
           <div className="step">
@@ -63,12 +64,12 @@ npm run serve:mcp-http   # the server plus an MCP stdio server in one process (d
             <div className="step-num">4</div>
             <div className="step-body">
               <h4>Configure Claude Desktop (Stdio)</h4>
-              <p>Add to <code>claude_desktop_config.json</code>:</p>
+              <p>Run <code>npm run build</code> once, then add to <code>claude_desktop_config.json</code>:</p>
               <pre>{`{
   "mcpServers": {
     "darknotes": {
       "command": "node",
-      "args": ["--import", "tsx", "/absolute/path/to/darknotes/apps/server/src/index.ts"]
+      "args": ["/absolute/path/to/darknotes/apps/server/dist/index.js"]
     }
   }
 }`}</pre>
@@ -82,7 +83,7 @@ npm run serve:mcp-http   # the server plus an MCP stdio server in one process (d
             <div className="step-num">5</div>
             <div className="step-body">
               <h4>Configure Claude Code (Stdio)</h4>
-              <pre>{`claude mcp add darknotes -- node --import tsx /absolute/path/to/darknotes/apps/server/src/index.ts`}</pre>
+              <pre>{`claude mcp add darknotes -- node /absolute/path/to/darknotes/apps/server/dist/index.js`}</pre>
             </div>
           </div>
         </div>
@@ -97,6 +98,7 @@ npm run serve:mcp-http   # the server plus an MCP stdio server in one process (d
           <tr><td className="tool-name">DARKNOTES_TOKEN</td><td>none</td><td>If set, <code>/api</code> and <code>/mcp</code> require <code>Authorization: Bearer &lt;token&gt;</code>.</td></tr>
           <tr><td className="tool-name">DARKNOTES_ALLOWED_HOSTS</td><td>none</td><td>Extra hostnames accepted in the <code>Host</code> header, comma-separated (<code>*</code> disables the check).</td></tr>
           <tr><td className="tool-name">DARKNOTES_ALLOWED_ORIGINS</td><td>none</td><td>Extra browser origins accepted, comma-separated, e.g. <code>https://notes.example.com</code>.</td></tr>
+          <tr><td className="tool-name">DARKNOTES_WEB_DIR</td><td>the build in the repository (<code>apps/web/out</code>)</td><td>Directory of the built web app that the server serves at <code>/</code>.</td></tr>
           <tr><td className="tool-name">DARKNOTES_DATA_DIR</td><td><code>~/.darknotes</code></td><td>Directory that holds <code>data.json</code>.</td></tr>
         </tbody></table>
 

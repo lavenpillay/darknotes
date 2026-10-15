@@ -2,7 +2,7 @@
 
 A visual note board with a local REST API and an MCP server, so Claude and other MCP-compatible AI clients can read and write your notes.
 
-> **Migration in progress.** DarkNotes is moving to a TypeScript monorepo with a Next.js + Tailwind frontend. The server (`apps/server`) is done. The Next.js app (`apps/web`) can now do everything the original app did except *Clear All*, which is intentionally not carried over, and it has the documentation page too (<http://localhost:3000/documentation>, also linked as *Docs* in its toolbar). The original single-file app and its docs page are still served by the server at <http://localhost:3737> until the cleanup that removes them. The old `server.js` still runs (`npm start`) but is superseded and will be removed at cutover.
+> **Migration nearly done.** DarkNotes has moved to a TypeScript monorepo with a Next.js + Tailwind web app. The server serves the built web app, the REST API and MCP from one port (3737). The original single-file app and its old backend files are still in the repository (and the server falls back to the original app only if the web app has not been built); they are removed in the next change.
 
 ## What this does
 
@@ -34,22 +34,22 @@ npm install
 
 ### Run the server
 
-| Command | Mode |
+| Command | What it does |
 |---|---|
-| `npm run serve` | **API mode**: REST `/api`, MCP `/mcp`, `/health` and the web UI at <http://localhost:3737> |
-| `npm run mcp` | **MCP stdio mode**: for Claude Desktop / Claude Code (no HTTP) |
-| `npm run serve:mcp-http` | The server (REST, MCP over HTTP, the original UI on <http://localhost:3737>) **plus** an MCP stdio server, in one process. **Does not start the new web app** |
-| `npm run dev:all` | **API server and Next.js app together** (API on <http://localhost:3737>, new UI on <http://localhost:3000>); Ctrl+C stops both |
-| `npm run dev:server` | API mode, restarts on file changes |
-| `npm run dev:web` | Next.js dev server on <http://localhost:3000>: the new board UI (proxies `/api` to port 3737, so start `npm run serve` too) |
+| `npm run build` | **Production build**: compiles the server to JavaScript (`apps/server/dist`) and exports the web app to static files (`apps/web/out`) |
+| `npm start` | **Production**: one process on <http://localhost:3737> serving the web app, `/api`, `/mcp` and `/health` (run `npm run build` first) |
+| `npm run dev:all` | **Development**: the server (<http://localhost:3737>) and the web app with hot reload (<http://localhost:3000>) together; Ctrl+C stops both |
+| `npm run dev:server` | The server only, from source, restarting on file changes |
+| `npm run dev:web` | The web app's dev server on <http://localhost:3000> (proxies `/api` to port 3737, so start the server too) |
+| `npm run serve` | The server only, from source: `/api`, `/mcp`, `/health`, and the built web app if it exists |
+| `npm run mcp` | **MCP stdio mode**, from source: for Claude Desktop / Claude Code (no HTTP) |
+| `npm run serve:mcp-http` | The server **plus** an MCP stdio server, in one process. **Does not start the web app** |
 
-These are shortcuts for `node --import tsx apps/server/src/index.ts [--api | --both]`. With no flag the server runs in stdio mode. All logging goes to stderr, because stdout carries the stdio protocol.
+The development and `serve`/`mcp` commands run the server straight from the TypeScript source with `tsx`; `npm start` runs the compiled build. With no flag the server runs in stdio mode (`node apps/server/dist/index.js [--api | --both]`). All logging goes to stderr, because stdout carries the stdio protocol.
 
-Open <http://localhost:3737> for the original UI. The green dot in the toolbar confirms the API is connected.
+**One port in production.** The static web app is built by `npm run build` into `apps/web/out` and served by the DarkNotes server itself, so there is no second process, no proxy and nothing else to expose: <http://localhost:3737> is the app, `/api` the REST API and `/mcp` the MCP endpoint. (`DARKNOTES_WEB_DIR` points the server at a different build directory.) In development the web app runs in its own Next.js dev server on port 3000, which proxies `/api` to the server so you get hot reload; that is why `dev:all` starts two processes.
 
-`npm run serve` starts only the API server (plus the original UI on port 3737). The new Next.js UI on port 3000 is a separate process that needs that API running: use `npm run dev:all` to start both, or run `npm run serve` in one terminal and `npm run dev:web` in another.
-
-**What `serve:mcp-http` is for.** The name refers to the two MCP transports, not to a web app: it serves MCP over **HTTP** (`/mcp` on port 3737) and over **stdio** at the same time. Use it when an MCP client launches the server and talks to it over stdio while you also want the HTTP side (REST API, `/mcp`, the original UI) available from the same process. It does **not** start the new web app on port 3000; for the browser UI use `npm run dev:all`. Run from a plain terminal, nothing is connected to the stdio side, so it just waits; the HTTP side works normally. (It runs the server with the `--both` flag, which is why the flag name differs.)
+**What `serve:mcp-http` is for.** The name refers to the two MCP transports, not to a web app: it serves MCP over **HTTP** (`/mcp` on port 3737) and over **stdio** at the same time. Use it when an MCP client launches the server and talks to it over stdio while you also want the HTTP side (REST API, `/mcp`, the built web app) available from the same process. It does **not** start the web app's development server; for development use `npm run dev:all`, for normal use `npm start`. Run from a plain terminal, nothing is connected to the stdio side, so it just waits; the HTTP side works normally. (It runs the server with the `--both` flag, which is why the flag name differs.)
 
 ### Configuration
 
@@ -62,6 +62,7 @@ Set these as environment variables.
 | `DARKNOTES_TOKEN` | *(none)* | If set, `/api` and `/mcp` require `Authorization: Bearer <token>` |
 | `DARKNOTES_ALLOWED_HOSTS` | *(none)* | Extra hostnames accepted in the `Host` header, comma-separated (`*` disables the check) |
 | `DARKNOTES_ALLOWED_ORIGINS` | *(none)* | Extra browser origins accepted, comma-separated, e.g. `https://notes.example.com` |
+| `DARKNOTES_WEB_DIR` | `apps/web/out` | Directory of the built web app that the server serves at `/` |
 | `DARKNOTES_DATA_DIR` | `~/.darknotes` | Where `data.json` lives |
 | `DARKNOTES_API_ORIGIN` | `http://127.0.0.1:3737` | Where the Next.js app proxies `/api` (web app only) |
 
@@ -77,6 +78,8 @@ Set these as environment variables.
 
 ### Claude Desktop (stdio)
 
+Run `npm run build` once first; the config points at the compiled server. (Without a build you can use `"command": "node", "args": ["--import", "tsx", ".../apps/server/src/index.ts"]` to run from source.)
+
 Add to `claude_desktop_config.json`:
 
 ```json
@@ -84,7 +87,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "darknotes": {
       "command": "node",
-      "args": ["--import", "tsx", "/absolute/path/to/darknotes/apps/server/src/index.ts"]
+      "args": ["/absolute/path/to/darknotes/apps/server/dist/index.js"]
     }
   }
 }
@@ -97,7 +100,7 @@ Config file location:
 ### Claude Code (stdio)
 
 ```bash
-claude mcp add darknotes -- node --import tsx /absolute/path/to/darknotes/apps/server/src/index.ts
+claude mcp add darknotes -- node /absolute/path/to/darknotes/apps/server/dist/index.js
 ```
 
 ### Streamable HTTP
@@ -122,7 +125,7 @@ docker run -d \
   darknotes
 ```
 
-The image runs API mode (`--api`) and binds `0.0.0.0` inside the container. **Publish the port on loopback** (`127.0.0.1:3737:3737`) as above, or set `DARKNOTES_TOKEN` (`-e DARKNOTES_TOKEN=...`) before exposing it any wider. The UI and MCP endpoint are then at `http://localhost:3737`. Mounting `~/.darknotes` keeps your data outside the container.
+The image is built in two stages and contains only Node, the compiled server and the static web app: one process, one port. It runs API mode (`--api`) and binds `0.0.0.0` inside the container. **Publish the port on loopback** (`127.0.0.1:3737:3737`) as above, or set `DARKNOTES_TOKEN` (`-e DARKNOTES_TOKEN=...`) before exposing it any wider. The app, the API (`/api`) and the MCP endpoint (`/mcp`) are then all at `http://localhost:3737`. Mounting `~/.darknotes` keeps your data outside the container.
 
 ---
 
