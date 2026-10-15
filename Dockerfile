@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ── Build: compile the server to JavaScript and export the web app to static files ──
 FROM node:22-alpine AS build
 WORKDIR /app

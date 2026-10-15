@@ -76,4 +76,4 @@ Requires Node 22+. Docker: `docker build -t darknotes .` (two stages: build, the
 
 The migration from the original plain-JavaScript server and single-file HTML apps to this TypeScript monorepo is complete and those files are gone. Two things were deliberately not carried over, because the owner does not need them: migrating boards stored in the original app's `localStorage`, and the original app's *Clear All* button. The importer still accepts the original app's export files.
 
-Known gap: the Docker image has not been built or run in this environment (the Docker daemon was unavailable); its runtime stage was rehearsed in a clean directory instead. Build it once (`docker build -t darknotes .`) before relying on it.
+The Docker image has been built (from scratch, no cache) and run on linux/arm64 under OrbStack: the app, `/documentation`, the API and `/health` answer on the published port, and notes are written to the mounted `/root/.darknotes` volume. It has not been tried on x86 or on Docker Desktop.
