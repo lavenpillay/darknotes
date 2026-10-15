@@ -10,10 +10,11 @@
     "test": "node --test tests/characterization.test.mjs",
     "dev:server": "npm run dev -w @darknotes/server",
     "dev:web": "npm run dev -w @darknotes/web",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:all": "npm test && npm test -w @darknotes/core -w @darknotes/server"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "uuid": "^9.0.0"

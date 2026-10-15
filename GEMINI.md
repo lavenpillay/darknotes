@@ -68,10 +68,10 @@ To persist your notes, mount a local directory to `/root/.darknotes` in the cont
 
 ```bash
 docker run -d \
-  -p 3737:3737 \
+  -p 127.0.0.1:3737:3737 \
   -v ~/.darknotes:/root/.darknotes \
   --name darknotes \
-  darknotes-server
+  darknotes
 ```
 
 The application will be available at `http://localhost:3737`.

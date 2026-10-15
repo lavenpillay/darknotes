@@ -60,7 +60,7 @@ A `Dockerfile` is provided for containerized execution.
   ```
 - **Run the container (persisting data):**
   ```bash
-  docker run -d -p 3737:3737 -v ~/.darknotes:/root/.darknotes --name darknotes darknotes-server
+  docker run -d -p 127.0.0.1:3737:3737 -v ~/.darknotes:/root/.darknotes --name darknotes darknotes
   ```
 
 ## 4. Key Conventions
