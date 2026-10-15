@@ -200,3 +200,16 @@ test('searchNotes spans workspaces', () => {
   assert.deepEqual(svc.searchNotes('Needle').map((h) => h.workspaceId).sort(), ['ws_1', 'ws_2']);
   assert.throws(() => svc.searchNotes(''), ValidationError);
 });
+
+test('connections can carry arrows; invalid arrows are rejected; absent stays absent', () => {
+  svc.createNote(undefined, { heading: 'A' });
+  svc.createNote(undefined, { heading: 'B' });
+  const plain = svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'right', toNote: 'n_2', toSide: 'left' });
+  assert.equal('arrows' in plain, false);
+  const arrow = svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'top', toNote: 'n_2', toSide: 'top', arrows: 'end' });
+  assert.equal(arrow.arrows, 'end');
+  assert.throws(
+    () => svc.createConnection(undefined, { fromNote: 'n_1', fromSide: 'top', toNote: 'n_2', toSide: 'top', arrows: 'both-ways' } as any),
+    ValidationError,
+  );
+});

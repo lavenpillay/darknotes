@@ -1,9 +1,12 @@
 'use client';
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Line, Note } from '@darknotes/core/types';
+import type { Line, Note, Side } from '@darknotes/core/types';
 import { bringToFrontZ, dragPosition, resizeSize, type ResizeHandle } from '@/lib/note-geometry';
+import { SIDES } from '@/lib/connection-geometry';
+import { useUi } from '@/lib/ui-store';
 import { boardStore } from '@/lib/use-board';
+import { startConnect } from './connect-drag';
 
 const update = (id: string, patch: Partial<Omit<Note, 'id'>>) => boardStore.getState().updateNote(id, patch);
 
@@ -144,6 +147,39 @@ function Labels({ note }: { note: Note }) {
   );
 }
 
+const DOT_POS: Record<Side, string> = {
+  top: 'left-1/2 top-[-7px] -translate-x-1/2',
+  right: 'right-[-7px] top-1/2 -translate-y-1/2',
+  bottom: 'bottom-[-7px] left-1/2 -translate-x-1/2',
+  left: 'left-[-7px] top-1/2 -translate-y-1/2',
+};
+
+/** Connection dots on the four edges: shown on hover, and on every note while a connection is dragged. */
+function ConnectionDots({ note }: { note: Note }) {
+  const connecting = useUi((s) => !!s.connecting);
+  const snapSide = useUi((s) => (s.snap?.noteId === note.id ? s.snap.side : null));
+  return (
+    <>
+      {SIDES.map((side) => (
+        <div
+          key={side}
+          data-conn-point={side}
+          title="Drag to connect"
+          className={`absolute z-20 size-3.5 cursor-crosshair rounded-full border-2 border-white bg-accent shadow transition ${DOT_POS[side]} ${
+            snapSide === side ? 'scale-150 opacity-100' : connecting ? 'opacity-70' : 'opacity-0 group-hover:opacity-100'
+          }`}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation(); // not a note drag, not a board pan
+            startConnect(note.id, side);
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 type Gesture =
   | { kind: 'drag'; start: Note; px: number; py: number }
   | { kind: 'resize'; handle: ResizeHandle; start: Note; px: number; py: number };
@@ -251,6 +287,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: Note }) {
         </div>
         <Labels note={note} />
       </div>
+      <ConnectionDots note={note} />
       <div {...handleProps('e')} aria-hidden className="absolute right-[-4px] top-3 bottom-6 w-2 cursor-ew-resize" />
       <div {...handleProps('s')} aria-hidden className="absolute bottom-[-4px] left-3 right-6 h-2 cursor-ns-resize" />
       <div

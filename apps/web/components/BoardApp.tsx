@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { clampZoom, roundZoom, ZOOM_STEP } from '@/lib/board-math';
 import { boardStore, useBoard } from '@/lib/use-board';
 import { Board } from './Board';
+import { ConnectionMenu } from './ConnectionMenu';
 import { Toolbar } from './Toolbar';
 
 const typing = (t: EventTarget | null) =>
@@ -90,6 +91,7 @@ export function BoardApp() {
       ) : (
         <Board />
       )}
+      <ConnectionMenu />
       {notice && (
         <div
           role="status"

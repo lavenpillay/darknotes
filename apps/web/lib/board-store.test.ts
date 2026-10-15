@@ -252,3 +252,31 @@ test('server down and nothing cached: error phase', async () => {
   assert.equal(store.getState().phase, 'error');
   assert.match(store.getState().error!, /network down/);
 });
+
+test('connections: add (with dedupe and validation), arrows, delete', async () => {
+  const f = fakeApi();
+  const store = createBoardStore({ api: f.api });
+  await store.getState().init();
+  const a = store.getState().addNote()!;
+  const b = store.getState().addNote()!;
+  const link = { fromNote: a, fromSide: 'right', toNote: b, toSide: 'left' } as const;
+
+  const id = store.getState().addConnection(link);
+  assert.equal(id, 'c_1');
+  assert.equal(store.getState().ws!.connections.c_1!.arrows, 'none');
+  assert.equal(store.getState().ws!.nextConnectionId, 2);
+
+  assert.equal(store.getState().addConnection(link), null); // duplicate
+  assert.equal(store.getState().addConnection({ fromNote: b, fromSide: 'left', toNote: a, toSide: 'right' }), null); // reverse duplicate
+  assert.equal(store.getState().addConnection({ ...link, toNote: a }), null); // to itself
+  assert.equal(store.getState().addConnection({ ...link, toNote: 'n_99' }), null); // missing note
+
+  store.getState().setConnectionArrows('c_1', 'both');
+  assert.equal(store.getState().ws!.connections.c_1!.arrows, 'both');
+
+  await store.getState().flush();
+  assert.equal(f.saves.at(-1)!.board.connections.c_1!.arrows, 'both');
+
+  store.getState().deleteConnection('c_1');
+  assert.deepEqual(Object.keys(store.getState().ws!.connections), []);
+});

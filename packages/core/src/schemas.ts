@@ -43,11 +43,14 @@ export const groupFields = {
 export const groupInputSchema = z.object(groupFields).partial();
 export const groupPatchSchema = z.object(groupFields).partial();
 
+export const arrowsSchema = z.enum(['none', 'start', 'end', 'both']);
+
 export const connectionInputSchema = z.object({
   fromNote: z.string().min(1),
   fromSide: sideSchema,
   toNote: z.string().min(1),
   toSide: sideSchema,
+  arrows: arrowsSchema.optional(),
 });
 
 export const workspacePatchSchema = z

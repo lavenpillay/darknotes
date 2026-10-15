@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { BOARD_H, BOARD_W, roundZoom, wheelZoomFactor, zoomAround } from '@/lib/board-math';
+import { BOARD_H, BOARD_W, roundZoom, screenToBoard, wheelZoomFactor, zoomAround } from '@/lib/board-math';
 import { boardStore, useBoard } from '@/lib/use-board';
+import { ConnectionLayer } from './ConnectionLayer';
 import { NoteCard } from './NoteCard';
 
 let viewportEl: HTMLDivElement | null = null;
@@ -10,6 +11,14 @@ let viewportEl: HTMLDivElement | null = null;
 /** Size of the visible board area (for "centre of the visible canvas" calculations). */
 export function viewportSize() {
   return { w: viewportEl?.clientWidth ?? 1000, h: viewportEl?.clientHeight ?? 700 };
+}
+
+/** Viewport pixel -> board coordinates, using the live pan/zoom. */
+export function boardPointFromClient(clientX: number, clientY: number) {
+  const ws = boardStore.getState().ws;
+  const rect = viewportEl?.getBoundingClientRect();
+  const view = { offsetX: ws?.boardOffsetX ?? 0, offsetY: ws?.boardOffsetY ?? 0, zoom: ws?.boardZoom ?? 1 };
+  return screenToBoard(view, { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) });
 }
 
 const typing = (t: EventTarget | null) =>
@@ -118,6 +127,7 @@ export function Board() {
           transform: `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`,
         }}
       >
+        <ConnectionLayer />
         {notes && Object.values(notes).map((note) => <NoteCard key={note.id} note={note} />)}
       </div>
     </div>

@@ -26,3 +26,31 @@ body {
     linear-gradient(90deg, rgba(160, 148, 132, 0.15) 1px, transparent 1px);
   background-size: 32px 32px;
 }
+
+/* Connection lines (legacy .conn-line) */
+.conn-line {
+  fill: none;
+  stroke: #b09878;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+  transition: stroke 0.15s, stroke-width 0.15s;
+}
+.conn-line:hover {
+  stroke: var(--color-accent);
+  stroke-width: 4;
+}
+.conn-line.preview {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: conn-dash 0.5s linear infinite;
+}
+@keyframes conn-dash {
+  to {
+    stroke-dashoffset: -26;
+  }
+}

@@ -135,6 +135,7 @@ export const TOOLS = [
     fromSide: { ...side, description: 'Side on source note' },
     toNote: { type: 'string', description: 'Target note ID' },
     toSide: { ...side, description: 'Side on target note' },
+    arrows: { type: 'string', enum: ['none', 'start', 'end', 'both'], description: 'Arrowheads (default none)' },
   }, ['fromNote', 'fromSide', 'toNote', 'toSide']),
   tool('delete_connection', 'Delete a connection between notes.', { workspaceId, connectionId: { type: 'string', description: 'Connection ID' } }, ['connectionId']),
 
@@ -238,7 +239,7 @@ export async function handleTool(name: string, args: Args): Promise<unknown> {
     case 'create_connection':
       return {
         ok: true,
-        connection: createConnection(ws(args), pick(args, ['fromNote', 'fromSide', 'toNote', 'toSide']) as ConnectionInput),
+        connection: createConnection(ws(args), pick(args, ['fromNote', 'fromSide', 'toNote', 'toSide', 'arrows']) as ConnectionInput),
       };
     case 'delete_connection':
       deleteConnection(ws(args), str(args, 'connectionId'));

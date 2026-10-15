@@ -4,7 +4,8 @@
  */
 
 import { createStore } from 'zustand/vanilla';
-import type { Line, Note, Workspace } from '@darknotes/core/types';
+import type { Arrows, Connection, Line, Note, Side, Workspace } from '@darknotes/core/types';
+import { isDuplicateConnection } from './connection-geometry';
 import type { Api, BoardPayload, WorkspaceSummary } from './api';
 import type { View } from './board-math';
 
@@ -42,6 +43,11 @@ export interface BoardState {
   updateNote(id: string, patch: Partial<Omit<Note, 'id'>>): void;
   deleteNote(id: string): void;
   setView(view: View): void;
+
+  /** Returns the new id, or null if a note is missing or the same two dots are already joined. */
+  addConnection(c: { fromNote: string; fromSide: Side; toNote: string; toSide: Side }): string | null;
+  deleteConnection(id: string): void;
+  setConnectionArrows(id: string, arrows: Arrows): void;
 }
 
 export interface BoardStoreOptions {
@@ -301,6 +307,32 @@ export function createBoardStore({ api, storage = null, saveDelayMs = 600, retry
             Object.entries(ws.connections).filter(([, c]) => c.fromNote !== id && c.toNote !== id),
           );
           return { ...ws, notes, connections };
+        });
+      },
+
+      addConnection(c) {
+        const { ws } = get();
+        if (!ws || c.fromNote === c.toNote || !ws.notes[c.fromNote] || !ws.notes[c.toNote]) return null;
+        if (isDuplicateConnection(ws.connections, c)) return null;
+        const id = `c_${ws.nextConnectionId}`;
+        const conn: Connection = { id, ...c, arrows: 'none' };
+        edit((w) => ({ ...w, nextConnectionId: w.nextConnectionId + 1, connections: { ...w.connections, [id]: conn } }));
+        return id;
+      },
+
+      deleteConnection(id) {
+        edit((ws) => {
+          if (!ws.connections[id]) return ws;
+          const { [id]: _removed, ...connections } = ws.connections;
+          return { ...ws, connections };
+        });
+      },
+
+      setConnectionArrows(id, arrows) {
+        edit((ws) => {
+          const c = ws.connections[id];
+          if (!c || (c.arrows ?? 'none') === arrows) return ws;
+          return { ...ws, connections: { ...ws.connections, [id]: { ...c, arrows } } };
         });
       },
 

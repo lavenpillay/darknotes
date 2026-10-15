@@ -35,12 +35,16 @@ export interface Group {
 
 export type Side = 'top' | 'right' | 'bottom' | 'left';
 
+export type Arrows = 'none' | 'start' | 'end' | 'both';
+
 export interface Connection {
   id: string; // c_<counter>
   fromNote: string;
   fromSide: Side;
   toNote: string;
   toSide: Side;
+  /** Arrowheads. Absent means 'none' (connections made before arrows existed, or via the API). */
+  arrows?: Arrows;
 }
 
 export interface Workspace {
