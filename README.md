@@ -38,7 +38,7 @@ npm install
 |---|---|
 | `npm run serve` | **API mode**: REST `/api`, MCP `/mcp`, `/health` and the web UI at <http://localhost:3737> |
 | `npm run mcp` | **MCP stdio mode**: for Claude Desktop / Claude Code (no HTTP) |
-| `npm run serve:both` | API mode and a stdio MCP server in one process |
+| `npm run serve:mcp-http` | The server (REST, MCP over HTTP, the original UI on <http://localhost:3737>) **plus** an MCP stdio server, in one process. **Does not start the new web app** |
 | `npm run dev:all` | **API server and Next.js app together** (API on <http://localhost:3737>, new UI on <http://localhost:3000>); Ctrl+C stops both |
 | `npm run dev:server` | API mode, restarts on file changes |
 | `npm run dev:web` | Next.js dev server on <http://localhost:3000>: the new board UI (proxies `/api` to port 3737, so start `npm run serve` too) |
@@ -48,6 +48,8 @@ These are shortcuts for `node --import tsx apps/server/src/index.ts [--api | --b
 Open <http://localhost:3737> for the original UI. The green dot in the toolbar confirms the API is connected.
 
 `npm run serve` starts only the API server (plus the original UI on port 3737). The new Next.js UI on port 3000 is a separate process that needs that API running: use `npm run dev:all` to start both, or run `npm run serve` in one terminal and `npm run dev:web` in another.
+
+**What `serve:mcp-http` is for.** The name refers to the two MCP transports, not to a web app: it serves MCP over **HTTP** (`/mcp` on port 3737) and over **stdio** at the same time. Use it when an MCP client launches the server and talks to it over stdio while you also want the HTTP side (REST API, `/mcp`, the original UI) available from the same process. It does **not** start the new web app on port 3000; for the browser UI use `npm run dev:all`. Run from a plain terminal, nothing is connected to the stdio side, so it just waits; the HTTP side works normally. (It runs the server with the `--both` flag, which is why the flag name differs.)
 
 ### Configuration
 

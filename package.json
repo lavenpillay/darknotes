@@ -14,7 +14,7 @@
     "test:all": "npm test && npm test -w @darknotes/core -w @darknotes/server -w @darknotes/web",
     "mcp": "node --import tsx apps/server/src/index.ts",
     "serve": "node --import tsx apps/server/src/index.ts --api",
-    "serve:both": "node --import tsx apps/server/src/index.ts --both",
+    "serve:mcp-http": "node --import tsx apps/server/src/index.ts --both",
     "dev:all": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\""
   },
   "dependencies": {

@@ -377,7 +377,7 @@ docker run -d \
 
 npm run serve        # API mode: web app, /api and /mcp on http://localhost:3737
 npm run mcp          # MCP over stdio only (what Claude Desktop / Claude Code launch)
-npm run serve:both   # API mode plus a stdio MCP server in one process
+npm run serve:mcp-http   # API mode plus a stdio MCP server in one process (does not start the new web app)
 npm run dev:all      # API server (:3737) and the new web app (:3000) together, for development</pre>
         <p class="text-muted mt-sm">Requires Node.js 22 or newer. <code>npm run serve</code> starts only the server (and the original app on port 3737); the new web app on port 3000 is a separate process, which <code>npm run dev:all</code> starts for you. Use <code>npm run dev:server</code> to restart the server automatically on file changes.</p>
       </div>
