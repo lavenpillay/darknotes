@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test lib/board-math.test.ts lib/board-store.test.ts lib/note-geometry.test.ts lib/connection-geometry.test.ts lib/group-geometry.test.ts lib/sync.test.ts lib/color.test.ts lib/fonts.test.ts lib/palette-store.test.ts"
+    "test": "tsx --test lib/board-math.test.ts lib/board-store.test.ts lib/note-geometry.test.ts lib/connection-geometry.test.ts lib/group-geometry.test.ts lib/sync.test.ts lib/color.test.ts lib/fonts.test.ts lib/palette-store.test.ts lib/minimap.test.ts"
   },
   "dependencies": {
     "@darknotes/core": "*",

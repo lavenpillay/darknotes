@@ -6,6 +6,7 @@ import { boardStore, useBoard } from '@/lib/use-board';
 import { hiddenNoteIds } from '@/lib/group-geometry';
 import { ConnectionLayer } from './ConnectionLayer';
 import { GroupBox } from './GroupBox';
+import { Minimap } from './Minimap';
 import { NoteCard } from './NoteCard';
 
 let viewportEl: HTMLDivElement | null = null;
@@ -135,6 +136,7 @@ export function Board() {
         <ConnectionLayer />
         {notes && Object.values(notes).filter((n) => !hidden.has(n.id)).map((note) => <NoteCard key={note.id} note={note} />)}
       </div>
+      <Minimap />
     </div>
   );
 }
