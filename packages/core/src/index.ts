@@ -3,3 +3,4 @@ export * from './store';
 export * from './errors';
 export * from './schemas';
 export * from './service';
+export * from './defaults';

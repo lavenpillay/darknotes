@@ -4,6 +4,7 @@ import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Line, Note, Side } from '@darknotes/core/types';
 import { bringToFrontZ, dragPosition, resizeSize, type ResizeHandle } from '@/lib/note-geometry';
 import { SIDES } from '@/lib/connection-geometry';
+import { fontFamily as headingFamily } from '@/lib/fonts';
 import { useUi } from '@/lib/ui-store';
 import { boardStore } from '@/lib/use-board';
 import { startConnect } from './connect-drag';
@@ -143,6 +144,29 @@ function Labels({ note }: { note: Note }) {
         }}
         onBlur={add}
       />
+      <button
+        type="button"
+        data-style-trigger
+        aria-label="Style"
+        aria-haspopup="dialog"
+        title="Colours, text size and heading font"
+        className="ml-auto flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-black/60 hover:bg-black/10 hover:text-black/80"
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          const open = useUi.getState().stylePanel?.noteId === note.id;
+          useUi.setState({
+            stylePanel: open ? null : { noteId: note.id, anchor: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } },
+            menu: null,
+            noteMenu: null,
+          });
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <circle cx="13.5" cy="6.5" r="1" /><circle cx="17.5" cy="10.5" r="1" /><circle cx="8.5" cy="7.5" r="1" /><circle cx="6.5" cy="12.5" r="1" />
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.9-4.5-9-10-9z" />
+        </svg>
+        Style
+      </button>
     </div>
   );
 }
@@ -274,7 +298,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: Note }) {
             aria-label="Heading"
             placeholder="Untitled"
             className="w-full bg-transparent pr-6 font-semibold outline-none placeholder:text-black/30"
-            style={{ fontFamily: `'${note.headingFont}', serif`, fontSize: note.headingSize }}
+            style={{ fontFamily: headingFamily(note.headingFont), fontSize: note.headingSize }}
             onChange={(e) => update(note.id, { heading: e.target.value })}
           />
           <button

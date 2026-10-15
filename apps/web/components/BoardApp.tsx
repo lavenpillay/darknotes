@@ -6,6 +6,7 @@ import { boardStore, useBoard } from '@/lib/use-board';
 import { Board } from './Board';
 import { ConnectionMenu } from './ConnectionMenu';
 import { NoteContextMenu } from './NoteContextMenu';
+import { StylePanel } from './StylePanel';
 import { Toolbar } from './Toolbar';
 
 /** How often the open tab merges in changes made by other writers. */
@@ -101,6 +102,7 @@ export function BoardApp() {
       )}
       <ConnectionMenu />
       <NoteContextMenu />
+      <StylePanel />
       {notice && (
         <div
           role="status"

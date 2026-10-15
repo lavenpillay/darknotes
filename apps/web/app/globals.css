@@ -54,3 +54,36 @@ body {
     stroke-dashoffset: -26;
   }
 }
+
+/* Colour picker sliders (hue / alpha): native range inputs with a painted track */
+input[type='range'].picker-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--track);
+  outline-offset: 3px;
+}
+input[type='range'].picker-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+input[type='range'].picker-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.checker {
+  background-image: linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%),
+    linear-gradient(45deg, #ddd 25%, #fff 25%, #fff 75%, #ddd 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}

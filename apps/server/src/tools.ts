@@ -57,7 +57,7 @@ const style = {
   bgColor: { type: 'string', description: 'Background color hex (e.g. "#FFF9C4")' },
   fontColor: { type: 'string', description: 'Font color' },
   fontSize: { type: 'number', description: 'Font size in px (11–24)' },
-  headingFont: { type: 'string', description: 'Heading font family (e.g. "Playfair Display")' },
+  headingFont: { type: 'string', description: 'Heading font name (e.g. "Lora"). Default "MesloLG": MesloLG if installed, else a sans-serif' },
   headingSize: { type: 'number', description: 'Heading font size in px' },
 };
 

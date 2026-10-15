@@ -7,6 +7,7 @@
  * offline cache.
  */
 
+import { DEFAULT_NOTE_STYLE } from '@darknotes/core/defaults';
 import { createStore } from 'zustand/vanilla';
 import type { Arrows, Connection, Group, Line, Note, Side, Workspace } from '@darknotes/core/types';
 import type { Api, WorkspaceSummary } from './api';
@@ -331,11 +332,7 @@ export function createBoardStore({
           y: 100,
           w: 300,
           h: 220,
-          bgColor: '#FFF9C4',
-          fontColor: '#1a1612',
-          fontSize: 14,
-          headingFont: 'Playfair Display',
-          headingSize: 17,
+          ...DEFAULT_NOTE_STYLE,
           groupId: null,
           zIndex: top + 1,
           ...init,

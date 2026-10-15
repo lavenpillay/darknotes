@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DEFAULT_NOTE_STYLE } from './defaults';
 import * as svc from './service';
 import { ConflictError, NotFoundError, ValidationError } from './errors';
 
@@ -294,4 +295,13 @@ test('applyChanges keeps counters safe: client-chosen ids never collide with ser
   svc.applyChanges(undefined, { changes: [{ op: 'createNote', note: { id: 'n_7', heading: 'client' } }] });
   const next = svc.createNote(undefined, { heading: 'server' });
   assert.equal(next.id, 'n_8'); // the store repaired nextNoteId past the highest existing id
+});
+
+test('new notes start with the shared default style (sans-serif MesloLG heading font)', () => {
+  const n = svc.createNote(undefined, { heading: 'D' });
+  assert.deepEqual(
+    [n.bgColor, n.fontColor, n.fontSize, n.headingFont, n.headingSize],
+    ['#FFF9C4', '#1a1612', 14, 'MesloLG', 17],
+  );
+  assert.equal(n.headingFont, DEFAULT_NOTE_STYLE.headingFont);
 });

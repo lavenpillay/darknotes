@@ -7,6 +7,7 @@
  * `wsId` is optional everywhere and defaults to the current workspace.
  */
 
+import { DEFAULT_NOTE_STYLE } from './defaults';
 import { ConflictError, NotFoundError, ValidationError } from './errors';
 import {
   boardSchema,
@@ -221,11 +222,11 @@ function buildNote(id: string, i: ReturnType<typeof noteInputSchema.parse>): Not
     y: i.y ?? 100,
     w: i.w ?? 300,
     h: i.h ?? 220,
-    bgColor: i.bgColor ?? '#FFF9C4',
-    fontColor: i.fontColor ?? '#1a1612',
-    fontSize: i.fontSize ?? 14,
-    headingFont: i.headingFont ?? 'Playfair Display',
-    headingSize: i.headingSize ?? 17,
+    bgColor: i.bgColor ?? DEFAULT_NOTE_STYLE.bgColor,
+    fontColor: i.fontColor ?? DEFAULT_NOTE_STYLE.fontColor,
+    fontSize: i.fontSize ?? DEFAULT_NOTE_STYLE.fontSize,
+    headingFont: i.headingFont ?? DEFAULT_NOTE_STYLE.headingFont,
+    headingSize: i.headingSize ?? DEFAULT_NOTE_STYLE.headingSize,
     groupId: i.groupId ?? null,
     zIndex: i.zIndex ?? 10,
   };
