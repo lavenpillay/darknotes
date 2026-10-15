@@ -39,12 +39,15 @@ npm install
 | `npm run serve` | **API mode**: REST `/api`, MCP `/mcp`, `/health` and the web UI at <http://localhost:3737> |
 | `npm run mcp` | **MCP stdio mode**: for Claude Desktop / Claude Code (no HTTP) |
 | `npm run serve:both` | API mode and a stdio MCP server in one process |
+| `npm run dev:all` | **API server and Next.js app together** (API on <http://localhost:3737>, new UI on <http://localhost:3000>); Ctrl+C stops both |
 | `npm run dev:server` | API mode, restarts on file changes |
 | `npm run dev:web` | Next.js dev server on <http://localhost:3000>: the new board UI (proxies `/api` to port 3737, so start `npm run serve` too) |
 
 These are shortcuts for `node --import tsx apps/server/src/index.ts [--api | --both]`. With no flag the server runs in stdio mode. All logging goes to stderr, because stdout carries the stdio protocol.
 
-Open <http://localhost:3737>. The green dot in the toolbar confirms the API is connected.
+Open <http://localhost:3737> for the original UI. The green dot in the toolbar confirms the API is connected.
+
+`npm run serve` starts only the API server (plus the original UI on port 3737). The new Next.js UI on port 3000 is a separate process that needs that API running: use `npm run dev:all` to start both, or run `npm run serve` in one terminal and `npm run dev:web` in another.
 
 ### Configuration
 
